@@ -6,47 +6,24 @@
  *  Developer        : Kobir Shah
  *  DEVELOPER_CREDIT : Powered by Kobir Shah
  *
- *  BugFix: Added missing require_once for StreamPassthru.php
- *  BugFix: FFmpeg mode now reads from DB settings (admin panel)
- *  BugFix: Per-channel ffmpeg_mode override supported
- *  BugFix: mode=auto tries passthru first, falls back to FFmpeg
- *
  *  Endpoints:
- *    ?url=BASE64&t=TOKEN              → auto-mode (from settings)
- *    ?url=BASE64&t=TOKEN&mode=on      → force FFmpeg
- *    ?url=BASE64&t=TOKEN&mode=off     → force passthru
- *    ?id=CHANNEL_ID&t=TOKEN           → per-channel mode from DB
- *    ?action=m3u&t=TOKEN              → M3U download
- *    ?action=m3u8manifest&url=&t=     → HLS manifest rewrite
+ *    ?url=BASE64               → auto-mode (from settings)
+ *    ?url=BASE64&mode=on       → force FFmpeg
+ *    ?url=BASE64&mode=off      → force passthru
+ *    ?id=CHANNEL_ID            → per-channel mode from DB
+ *    ?action=m3u               → M3U download
+ *    ?action=m3u8manifest&url= → HLS manifest rewrite
  * ============================================================
  */
 
 declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/src/Database.php';
-require_once __DIR__ . '/src/Security.php';
-require_once __DIR__ . '/src/StreamPassthru.php';  // FIX: was missing
+require_once __DIR__ . '/src/StreamPassthru.php';
 require_once __DIR__ . '/src/FFmpegProxy.php';
 require_once __DIR__ . '/engine.php';
-require_once __DIR__ . '/auth.php';
 
 error_log('[XtreamTV][Proxy] ' . ($_SERVER['REMOTE_ADDR'] ?? '?') . ' — ' . DEVELOPER_CREDIT);
-
-// ── Auth via token ─────────────────────────────────────────────
-$token = trim($_GET['t'] ?? $_GET['token'] ?? '');
-$user  = Auth::byToken($token);
-
-if (!$user) {
-    if (Auth::check()) {
-        $user = Auth::user();
-    } else {
-        http_response_code(401);
-        header('Content-Type: application/json');
-        header('X-Developer: Kobir Shah');
-        echo json_encode(['error' => 'Unauthorized', 'credit' => DEVELOPER_CREDIT]);
-        exit;
-    }
-}
 
 $action    = trim($_GET['action'] ?? '');
 $channelId = (int)($_GET['id']    ?? 0);
@@ -59,8 +36,8 @@ if ($action === 'm3u') {
 
     if ($playlistId) {
         $pl = Database::query(
-            "SELECT * FROM playlists WHERE id = ? AND user_id = ?",
-            [$playlistId, $user['id']]
+            "SELECT * FROM playlists WHERE id = ?",
+            [$playlistId]
         )->fetch();
 
         if (!$pl) {
@@ -74,7 +51,7 @@ if ($action === 'm3u') {
             [$playlistId]
         )->fetchAll();
 
-        M3UEngine::generateM3U($channels, $proxyBase . '?t=' . urlencode($token));
+        M3UEngine::generateM3U($channels, $proxyBase);
     } else {
         header('Content-Type: application/x-mpegurl; charset=utf-8');
         header('Content-Disposition: attachment; filename="xtreamtv_all.m3u"');
@@ -83,13 +60,12 @@ if ($action === 'm3u') {
         $stmt = Database::query(
             "SELECT c.* FROM channels c
              JOIN playlists p ON p.id = c.playlist_id
-             WHERE p.user_id = ? AND c.is_active = 1
-             ORDER BY c.group_title, c.sort_order",
-            [$user['id']]
+             WHERE c.is_active = 1
+             ORDER BY c.group_title, c.sort_order"
         );
         while ($ch = $stmt->fetch()) {
             $proxiedUrl = APP_URL . '/xtreamtv/proxy.php?url='
-                . base64_encode($ch['stream_url']) . '&t=' . urlencode($token);
+                . base64_encode($ch['stream_url']);
             echo '#EXTINF:-1'
                 . ' tvg-id="'      . htmlspecialchars($ch['tvg_id']      ?? '', ENT_QUOTES, 'UTF-8') . '"'
                 . ' tvg-name="'    . htmlspecialchars($ch['tvg_name']    ?? '', ENT_QUOTES, 'UTF-8') . '"'
@@ -105,7 +81,7 @@ if ($action === 'm3u') {
 // ── ACTION: Rewrite HLS manifest ──────────────────────────────
 if ($action === 'm3u8manifest') {
     $rawUrl    = trim($_GET['url'] ?? '');
-    $proxyBase = APP_URL . '/xtreamtv/proxy.php?t=' . urlencode($token);
+    $proxyBase = APP_URL . '/xtreamtv/proxy.php';
 
     if (!$rawUrl) {
         http_response_code(400);
@@ -125,7 +101,7 @@ if ($action === 'm3u8manifest') {
     }
 
     try {
-        M3UEngine::proxyM3U8Manifest($streamUrl, $proxyBase . '&action=m3u8manifest&url=');
+        M3UEngine::proxyM3U8Manifest($streamUrl, $proxyBase . '?action=m3u8manifest&url=');
     } catch (\Throwable $e) {
         http_response_code(502);
         echo '#EXTM3U8-error: ' . $e->getMessage();
@@ -135,14 +111,13 @@ if ($action === 'm3u8manifest') {
 
 // ── Resolve stream URL + per-channel FFmpeg mode ───────────────
 $streamUrl         = null;
-$channelFfmpegMode = 'inherit'; // will be resolved below
+$channelFfmpegMode = 'inherit';
 
 if ($channelId > 0) {
     $ch = Database::query(
         "SELECT c.stream_url, c.ffmpeg_mode FROM channels c
-         JOIN playlists p ON p.id = c.playlist_id
-         WHERE c.id = ? AND c.is_active = 1 AND p.user_id = ?",
-        [$channelId, $user['id']]
+         WHERE c.id = ? AND c.is_active = 1",
+        [$channelId]
     )->fetch();
 
     if (!$ch) {
@@ -176,36 +151,10 @@ if (!$streamUrl) {
     header('Content-Type: application/json');
     header('X-Developer: Kobir Shah');
     echo json_encode([
-        'error'     => 'Provide ?id=CHANNEL_ID or ?url=BASE64_URL with ?t=TOKEN',
+        'error'     => 'Provide ?id=CHANNEL_ID or ?url=BASE64_URL',
         'product'   => APP_NAME . ' v' . APP_VERSION,
         'credit'    => DEVELOPER_CREDIT,
         'developer' => 'Kobir Shah',
-    ]);
-    exit;
-}
-
-// ── Expiry check ───────────────────────────────────────────────
-if (!empty($user['expires_at']) && (int)$user['expires_at'] < time()) {
-    http_response_code(403);
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'Account expired', 'credit' => DEVELOPER_CREDIT]);
-    exit;
-}
-
-// ── Concurrent stream limit ────────────────────────────────────
-$activeCount = (int)Database::query(
-    "SELECT COUNT(*) FROM stream_sessions WHERE user_id = ? AND last_ping > ?",
-    [$user['id'], time() - 30]
-)->fetchColumn();
-
-$maxStreams = (int)($user['max_streams'] ?? 1);
-if ($activeCount >= $maxStreams) {
-    http_response_code(429);
-    header('Content-Type: application/json');
-    header('X-Developer: Kobir Shah');
-    echo json_encode([
-        'error'  => "Max concurrent streams ({$maxStreams}) reached",
-        'credit' => DEVELOPER_CREDIT,
     ]);
     exit;
 }
@@ -228,7 +177,7 @@ try {
 //  Per-channel override:  channels.ffmpeg_mode = inherit|off|on|auto
 //  URL override:          ?mode=off|on|auto  (for testing)
 // ════════════════════════════════════════════════════════════════
-$globalMode  = Database::setting('ffmpeg_mode', 'off');    // admin panel value
+$globalMode  = Database::setting('ffmpeg_mode', 'off');
 $quality     = Database::setting('ffmpeg_quality', 'passthru');
 
 // Resolve per-channel override
@@ -243,27 +192,20 @@ if (in_array($urlMode, ['off', 'on', 'auto'], strict: true)) {
 }
 
 // ── Route to correct proxy mode ───────────────────────────────
-$userId = (int)$user['id'];
-
 if ($resolvedMode === 'on') {
-    // ── FFmpeg mode ON: always use FFmpeg ─────────────────────
-    FFmpegProxy::stream($streamUrl, $userId, $quality);
+    FFmpegProxy::stream($streamUrl, $quality);
 
 } elseif ($resolvedMode === 'auto') {
-    // ── FFmpeg mode AUTO: try passthru, fallback to FFmpeg ─────
-    // We attempt passthru first; if cURL fails immediately,
-    // FFmpegProxy takes over. Simple header probe determines viability.
     $probeOk = self_probeStream($streamUrl);
     if ($probeOk) {
-        StreamPassthru::pipe($streamUrl, $userId, $token);
+        StreamPassthru::pipe($streamUrl);
     } else {
         error_log('[XtreamTV][Proxy] Auto-mode: passthru probe failed, switching to FFmpeg — Kobir Shah');
-        FFmpegProxy::stream($streamUrl, $userId, $quality);
+        FFmpegProxy::stream($streamUrl, $quality);
     }
 
 } else {
-    // ── FFmpeg mode OFF (default): fpassthru passthru ─────────
-    StreamPassthru::pipe($streamUrl, $userId, $token);
+    StreamPassthru::pipe($streamUrl);
 }
 
 /**

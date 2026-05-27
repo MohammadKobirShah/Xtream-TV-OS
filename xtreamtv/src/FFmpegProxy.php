@@ -50,16 +50,14 @@ final class FFmpegProxy
      * on stream errors, and bypasses User-Agent CDN locks.
      *
      * @param string $url     Upstream stream URL (pre-validated, no SSRF)
-     * @param int    $userId  For logging
      * @param string $quality 4k | hd | sd | passthru (default passthru)
      */
-    public static function stream(string $url, int $userId = 0, string $quality = 'passthru'): void
+    public static function stream(string $url, string $quality = 'passthru'): void
     {
         // ── Verify FFmpeg is available ─────────────────────────────
         if (!self::available()) {
             error_log('[XtreamTV][FFmpeg] Binary not found — fallback to passthru — Kobir Shah');
-            // Graceful fallback to fpassthru mode
-            StreamPassthru::pipe($url, $userId);
+            StreamPassthru::pipe($url);
             return;
         }
 
@@ -83,11 +81,11 @@ final class FFmpegProxy
 
         // ── Open FFmpeg process with stdout pipe ───────────────────
         $descriptors = [
-            0 => ['pipe', 'r'],           // stdin  (unused)
-            1 => ['pipe', 'w'],           // stdout → we read this
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
             2 => ['file',
                   STORAGE_PATH . '/logs/ffmpeg_' . date('Ymd') . '.log',
-                  'a'],                   // stderr → log file
+                  'a'],
         ];
 
         $process = proc_open($cmd, $descriptors, $pipes);
@@ -104,10 +102,8 @@ final class FFmpegProxy
         // ── Set stdout to non-blocking ─────────────────────────────
         stream_set_blocking($pipes[1], false);
 
-        $stdout     = $pipes[1];
-        $bytesSent  = 0;
-        $lastPing   = time();
-        $chunkSize  = 65536; // 64 KB chunks — optimal for TS streams
+        $stdout    = $pipes[1];
+        $chunkSize = 65536;
 
         // ── PRO-TIP #1 + #2 combined:
         //    Read FFmpeg stdout → fpassthru() to client ──────────────
@@ -123,33 +119,17 @@ final class FFmpegProxy
             $chunk = fread($stdout, $chunkSize);
 
             if ($chunk === false || $chunk === '') {
-                // Non-blocking read returned empty — brief pause
-                usleep(5000); // 5ms
+                usleep(5000);
                 continue;
             }
 
             // ── Write chunk to temp, rewind, fpassthru() ──────────
             fwrite($tmpHandle, $chunk);
             rewind($tmpHandle);
-            fpassthru($tmpHandle);      // ← zero-copy kernel pipe
+            fpassthru($tmpHandle);
             ftruncate($tmpHandle, 0);
             fseek($tmpHandle, 0);
             flush();
-
-            $bytesSent += strlen($chunk);
-
-            // Ping DB every 20s
-            if ($userId && (time() - $lastPing) >= 20) {
-                try {
-                    Database::query(
-                        "UPDATE stream_sessions SET last_ping = strftime('%s','now'), bytes_sent = bytes_sent + ?
-                         WHERE user_id = ? ORDER BY id DESC LIMIT 1",
-                        [$bytesSent, $userId]
-                    );
-                } catch (\Throwable) {}
-                $bytesSent = 0;
-                $lastPing  = time();
-            }
         }
 
         // ── Cleanup ────────────────────────────────────────────────
@@ -158,8 +138,8 @@ final class FFmpegProxy
 
         $exitCode = proc_close($process);
         error_log(sprintf(
-            '[XtreamTV][FFmpeg] Process ended (exit:%d, bytes:%d) — Kobir Shah',
-            $exitCode, $bytesSent
+            '[XtreamTV][FFmpeg] Process ended (exit:%d) — Kobir Shah',
+            $exitCode
         ));
     }
 
@@ -173,10 +153,8 @@ final class FFmpegProxy
      */
     private static function buildCommand(string $url, string $quality): string
     {
-        // Sanitize URL for shell — no shell_exec with raw user input ever
         $safeUrl = escapeshellarg($url);
 
-        // Common input flags: reconnect, timeout, spoofed UA
         $inputFlags = implode(' ', [
             '-hide_banner',
             '-loglevel warning',
@@ -185,17 +163,14 @@ final class FFmpegProxy
             '-reconnect_delay_max ' . self::RECONNECT_DELAY,
             '-reconnect_at_eof 1',
             '-user_agent ' . escapeshellarg(self::SPOOF_UA),
-            '-timeout 10000000',            // 10s connect timeout (µs)
-            '-analyzeduration 2000000',     // 2s analysis
-            '-probesize 5000000',           // 5MB probe
+            '-timeout 10000000',
+            '-analyzeduration 2000000',
+            '-probesize 5000000',
         ]);
 
-        // Output flags: pipe to stdout as MPEG-TS
         $outputPipe = 'pipe:1';
 
         return match ($quality) {
-
-            // ── Passthru / 4K: copy codecs, remux to TS only ──────
             'passthru', '4k' => sprintf(
                 '%s %s -i %s -c:v copy -c:a copy -f mpegts %s 2>&1',
                 escapeshellcmd(self::FFMPEG_BIN),
@@ -203,8 +178,6 @@ final class FFmpegProxy
                 $safeUrl,
                 $outputPipe
             ),
-
-            // ── HD: scale + H264 + AAC ─────────────────────────────
             'hd' => sprintf(
                 '%s %s -i %s -vf scale=1280:720 -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 128k -f mpegts %s 2>&1',
                 escapeshellcmd(self::FFMPEG_BIN),
@@ -212,8 +185,6 @@ final class FFmpegProxy
                 $safeUrl,
                 $outputPipe
             ),
-
-            // ── SD: scale + H264 + AAC (lower bitrate) ─────────────
             'sd' => sprintf(
                 '%s %s -i %s -vf scale=854:480 -c:v libx264 -preset veryfast -crf 28 -c:a aac -b:a 96k -f mpegts %s 2>&1',
                 escapeshellcmd(self::FFMPEG_BIN),
@@ -221,8 +192,6 @@ final class FFmpegProxy
                 $safeUrl,
                 $outputPipe
             ),
-
-            // ── Unknown quality → safe fallback to passthru ─────────
             default => sprintf(
                 '%s %s -i %s -c copy -f mpegts %s 2>&1',
                 escapeshellcmd(self::FFMPEG_BIN),

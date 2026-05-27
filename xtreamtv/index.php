@@ -12,160 +12,105 @@
 declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/src/Database.php';
-require_once __DIR__ . '/src/Security.php';
-require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/engine.php';
 require_once __DIR__ . '/epg.php';
 
-Auth::requireLogin();
-$user    = Auth::user();
-$isAdmin = $user['is_admin'];
-$csrf    = Auth::csrfToken();
-
-// ── Handle Add M3U Form ────────────────────────────────────
 $flashMsg  = '';
 $flashType = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!Auth::verifyCsrf($_POST['csrf_token'] ?? '')) {
-        $flashMsg = 'Security token mismatch. Refresh and try again.';
-        $flashType = 'error';
-    } else {
-        $act = $_POST['action'] ?? '';
+    $act = $_POST['action'] ?? '';
 
-        if ($act === 'add_m3u_url') {
-            $name   = trim($_POST['name']    ?? '');
-            $url    = trim($_POST['m3u_url'] ?? '');
-            $epgUrl = trim($_POST['epg_url'] ?? '');
+    if ($act === 'add_m3u_url') {
+        $name   = trim($_POST['name']    ?? '');
+        $url    = trim($_POST['m3u_url'] ?? '');
+        $epgUrl = trim($_POST['epg_url'] ?? '');
 
-            if (!$name || !$url) {
-                $flashMsg = 'Name and M3U URL are required.'; $flashType = 'error';
-            } elseif (!filter_var($url, FILTER_VALIDATE_URL)) {
-                $flashMsg = 'Invalid M3U URL.'; $flashType = 'error';
-            } else {
-                try {
-                    M3UEngine::assertSafeUrl($url);
-                    Database::query(
-                        "INSERT INTO playlists (user_id, name, url, epg_url) VALUES (?, ?, ?, ?)",
-                        [$user['id'], $name, $url, $epgUrl ?: null]
-                    );
-                    $playlistId = (int)Database::lastInsertId();
+        if (!$name || !$url) {
+            $flashMsg = 'Name and M3U URL are required.'; $flashType = 'error';
+        } elseif (!filter_var($url, FILTER_VALIDATE_URL)) {
+            $flashMsg = 'Invalid M3U URL.'; $flashType = 'error';
+        } else {
+            try {
+                M3UEngine::assertSafeUrl($url);
+                Database::query(
+                    "INSERT INTO playlists (name, url, epg_url) VALUES (?, ?, ?)",
+                    [$name, $url, $epgUrl ?: null]
+                );
+                $playlistId = (int)Database::lastInsertId();
 
-                    set_time_limit(300);
-                    $channels = M3UEngine::parseM3U($url, $playlistId);
-                    $count    = count($channels);
+                set_time_limit(300);
+                $channels = M3UEngine::parseM3U($url, $playlistId);
+                $count    = count($channels);
 
-                    // Insert channels in batch
-                    $pdo  = Database::getInstance();
-                    $stmt = $pdo->prepare(
-                        "INSERT INTO channels (playlist_id, tvg_id, tvg_name, tvg_logo, group_title, name, stream_url, stream_type, sort_order)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                    );
-                    $pdo->beginTransaction();
-                    foreach ($channels as $i => $ch) {
-                        $stmt->execute([
-                            $playlistId, $ch['tvg_id']??'', $ch['tvg_name']??'',
-                            $ch['tvg_logo']??'', $ch['group_title']??'Uncategorized',
-                            $ch['name']??'Unknown', $ch['stream_url']??'',
-                            $ch['stream_type']??'live', $i,
-                        ]);
-                    }
-                    $pdo->commit();
-
-                    Database::query(
-                        "UPDATE playlists SET channel_count = ?, last_synced = strftime('%s','now') WHERE id = ?",
-                        [$count, $playlistId]
-                    );
-
-                    // Import EPG if provided
-                    $epgImported = 0;
-                    if ($epgUrl) {
-                        try {
-                            M3UEngine::assertSafeUrl($epgUrl);
-                            $epgImported = EPGEngine::importEPG($epgUrl, $playlistId);
-                        } catch (\Throwable) {}
-                    }
-
-                    $flashMsg  = "✅ Imported '{$name}' with {$count} channels" . ($epgImported ? " + {$epgImported} EPG entries." : ".");
-                    $flashType = 'success';
-
-                } catch (\Throwable $e) {
-                    $flashMsg  = 'Import failed: ' . $e->getMessage();
-                    $flashType = 'error';
+                $pdo  = Database::getInstance();
+                $stmt = $pdo->prepare(
+                    "INSERT INTO channels (playlist_id, tvg_id, tvg_name, tvg_logo, group_title, name, stream_url, stream_type, sort_order)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                );
+                $pdo->beginTransaction();
+                foreach ($channels as $i => $ch) {
+                    $stmt->execute([
+                        $playlistId, $ch['tvg_id']??'', $ch['tvg_name']??'',
+                        $ch['tvg_logo']??'', $ch['group_title']??'Uncategorized',
+                        $ch['name']??'Unknown', $ch['stream_url']??'',
+                        $ch['stream_type']??'live', $i,
+                    ]);
                 }
+                $pdo->commit();
+
+                Database::query(
+                    "UPDATE playlists SET channel_count = ?, last_synced = strftime('%s','now') WHERE id = ?",
+                    [$count, $playlistId]
+                );
+
+                $epgImported = 0;
+                if ($epgUrl) {
+                    try {
+                        M3UEngine::assertSafeUrl($epgUrl);
+                        $epgImported = EPGEngine::importEPG($epgUrl, $playlistId);
+                    } catch (\Throwable) {}
+                }
+
+                $flashMsg  = "✅ Imported '{$name}' with {$count} channels" . ($epgImported ? " + {$epgImported} EPG entries." : ".");
+                $flashType = 'success';
+
+            } catch (\Throwable $e) {
+                $flashMsg  = 'Import failed: ' . $e->getMessage();
+                $flashType = 'error';
             }
         }
+    }
 
-        if ($act === 'delete_playlist') {
-            $pid = (int)($_POST['playlist_id'] ?? 0);
-            $pl  = Database::query("SELECT * FROM playlists WHERE id = ?", [$pid])->fetch();
-            if ($pl && ($isAdmin || (int)$pl['user_id'] === $user['id'])) {
-                if ($pl['source_file'] && file_exists($pl['source_file'])) unlink($pl['source_file']);
-                M3UEngine::invalidateCache($pid);
-                Database::query("DELETE FROM playlists WHERE id = ?", [$pid]);
-                $flashMsg = 'Playlist deleted.'; $flashType = 'success';
-            }
+    if ($act === 'delete_playlist') {
+        $pid = (int)($_POST['playlist_id'] ?? 0);
+        $pl  = Database::query("SELECT * FROM playlists WHERE id = ?", [$pid])->fetch();
+        if ($pl) {
+            if ($pl['source_file'] && file_exists($pl['source_file'])) unlink($pl['source_file']);
+            M3UEngine::invalidateCache($pid);
+            Database::query("DELETE FROM playlists WHERE id = ?", [$pid]);
+            $flashMsg = 'Playlist deleted.'; $flashType = 'success';
         }
     }
 }
 
-// ── Stats ─────────────────────────────────────────────────
 $db = Database::getInstance();
-$uid = $user['id'];
-$cutoff = time() - 30;
 
 $q = function(string $sql, array $params = []) use ($db): int {
     $s = $db->prepare($sql); $s->execute($params); return (int)$s->fetchColumn();
 };
 
 $stats = [
-    'playlists'     => $q("SELECT COUNT(*) FROM playlists WHERE user_id = ?", [$uid]),
-    'channels'      => $q("SELECT COUNT(*) FROM channels c JOIN playlists p ON p.id=c.playlist_id WHERE p.user_id=? AND c.is_active=1", [$uid]),
-    'live'          => $q("SELECT COUNT(*) FROM channels c JOIN playlists p ON p.id=c.playlist_id WHERE p.user_id=? AND c.stream_type='live'", [$uid]),
-    'vod'           => $q("SELECT COUNT(*) FROM channels c JOIN playlists p ON p.id=c.playlist_id WHERE p.user_id=? AND c.stream_type='vod'", [$uid]),
-    'active_streams'=> $q("SELECT COUNT(*) FROM stream_sessions WHERE user_id=? AND last_ping > ?", [$uid, $cutoff]),
-    'epg_programs'  => (int)$db->query("SELECT COUNT(*) FROM epg_programs")->fetchColumn(),
-    'uptime'        => self_uptime(),
+    'playlists'    => $q("SELECT COUNT(*) FROM playlists"),
+    'channels'     => $q("SELECT COUNT(*) FROM channels WHERE is_active=1"),
+    'live'         => $q("SELECT COUNT(*) FROM channels WHERE stream_type='live'"),
+    'vod'          => $q("SELECT COUNT(*) FROM channels WHERE stream_type='vod'"),
+    'epg_programs' => (int)$db->query("SELECT COUNT(*) FROM epg_programs")->fetchColumn(),
+    'uptime'       => self_uptime(),
 ];
-if ($isAdmin) {
-    $stats['total_users']   = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn();
-    $stats['total_channels']= (int)$db->query("SELECT COUNT(*) FROM channels WHERE is_active=1")->fetchColumn();
-    $stats['global_streams']= $q("SELECT COUNT(*) FROM stream_sessions WHERE last_ping > ?", [$cutoff]);
-}
 
-// ── Playlists ─────────────────────────────────────────────
-$playlists = $isAdmin
-    ? Database::query("SELECT p.*, u.username FROM playlists p JOIN users u ON u.id=p.user_id ORDER BY p.added_at DESC")->fetchAll()
-    : Database::query("SELECT p.*, u.username FROM playlists p JOIN users u ON u.id=p.user_id WHERE p.user_id=? ORDER BY p.added_at DESC", [$user['id']])->fetchAll();
+$playlists = Database::query("SELECT * FROM playlists ORDER BY added_at DESC")->fetchAll();
 
-// ── Recent logs ────────────────────────────────────────────
-$recentLogs = Database::query(
-    "SELECT al.*, u.username FROM access_log al LEFT JOIN users u ON u.id=al.user_id ORDER BY al.created_at DESC LIMIT 6"
-)->fetchAll();
-
-// ── Active streams ─────────────────────────────────────────
-$activeStreams = Database::query(
-    "SELECT ss.*, u.username, c.name AS ch_name FROM stream_sessions ss
-     JOIN users u ON u.id=ss.user_id
-     JOIN channels c ON c.id=ss.channel_id
-     WHERE ss.last_ping > ? ORDER BY ss.last_ping DESC LIMIT 8",
-    [time() - 30]
-)->fetchAll();
-
-// ── Helper: format server uptime ───────────────────────────
-function self_uptime(): string {
-    if (PHP_OS_FAMILY === 'Linux') {
-        $up = @file_get_contents('/proc/uptime');
-        if ($up) {
-            $sec = (int)explode(' ', $up)[0];
-            $d = (int)floor($sec/86400); $h = (int)floor(($sec%86400)/3600); $m = (int)floor(($sec%3600)/60);
-            return "{$d}d {$h}h {$m}m";
-        }
-    }
-    return 'N/A';
-}
-
-// ── Shorthand HTML escape ──────────────────────────────────
 $e = fn($v) => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 ?>
 <!DOCTYPE html>
@@ -203,21 +148,12 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 .nav-item:hover{background:rgba(0,180,255,0.07);color:var(--text);transform:translateX(2px);}
 .nav-item.active{background:linear-gradient(90deg,rgba(0,180,255,0.18),rgba(168,85,247,0.06));color:var(--blue);border-left:3px solid var(--blue);box-shadow:inset 0 0 20px rgba(0,180,255,0.05);}
 .nav-icon{font-size:1rem;width:18px;text-align:center;}
-.sb-user{padding:14px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
-.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0;box-shadow:0 0 14px rgba(0,180,255,.25);}
-.u-name{font-size:.82rem;font-weight:600;}
-.u-role{font-size:.68rem;color:var(--muted);}
-.btn-out{margin-left:auto;padding:5px 10px;border-radius:8px;background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);font-size:.72rem;cursor:pointer;text-decoration:none;transition:.2s;}
-.btn-out:hover{background:rgba(239,68,68,.2);}
 
 /* ── MAIN ── */
 .main{margin-left:var(--nav-w);min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1;}
 .topbar{position:sticky;top:0;z-index:50;background:rgba(5,5,8,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;}
 .tb-title{font-size:1rem;font-weight:700;}
 .tb-right{display:flex;align-items:center;gap:12px;}
-.badge{padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase;}
-.badge-admin{background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3);}
-.badge-user{background:rgba(0,180,255,.1);color:var(--blue);border:1px solid rgba(0,180,255,.2);}
 .content{padding:26px 28px;flex:1;}
 
 /* ── STAT GRID ── */
@@ -268,8 +204,6 @@ tbody tr:hover{background:rgba(0,180,255,.04);}
 .t-live{background:rgba(16,185,129,.15);color:var(--green);}
 .t-vod{background:rgba(168,85,247,.12);color:var(--purple);}
 .t-off{background:rgba(239,68,68,.1);color:var(--red);}
-.t-admin{background:rgba(168,85,247,.12);color:var(--purple);}
-.t-user{background:rgba(0,180,255,.1);color:var(--blue);}
 .pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:p 2s infinite;margin-left:5px;}
 @keyframes p{0%,100%{opacity:1}50%{opacity:.4}}
 
@@ -289,13 +223,6 @@ tbody tr:hover{background:rgba(0,180,255,.04);}
 .modal-close:hover{background:rgba(255,255,255,.08);color:var(--text);}
 .modal-body{padding:22px;max-height:70vh;overflow-y:auto;}
 .modal-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;}
-
-/* ── API BANNER ── */
-.api-banner{background:linear-gradient(90deg,rgba(0,180,255,.06),rgba(168,85,247,.05));border:1px solid rgba(0,180,255,.2);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:22px;}
-.api-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px;}
-.api-card{background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
-.api-lbl{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
-.api-val{font-family:monospace;font-size:.78rem;word-break:break-all;}
 
 /* ── MISC ── */
 .mono{font-family:'Courier New',monospace;font-size:.78rem;}
@@ -317,7 +244,7 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
 
 @media(max-width:768px){
   .sidebar{width:58px;}
-  .sb-logo .logo-sub,.nav-item span:last-child,.sb-user .u-name,.sb-user .u-role,.btn-out{display:none;}
+  .sb-logo .logo-sub,.nav-item span:last-child{display:none;}
   .logo-txt{font-size:.9rem;}
   .main{margin-left:58px;}
   .content{padding:14px;}
@@ -341,23 +268,8 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
     <a href="playlists.php" class="nav-item"><span class="nav-icon">📡</span><span>Playlists</span></a>
     <a href="channels.php" class="nav-item"><span class="nav-icon">☰</span><span>Channels</span></a>
     <div class="nav-sect">Tools</div>
-    <a href="api_info.php" class="nav-item"><span class="nav-icon">🔌</span><span>API Info</span></a>
-    <a href="api.php?username=<?= urlencode($user['username']) ?>&password=<?= urlencode($user['api_token']) ?>" target="_blank" class="nav-item"><span class="nav-icon">🧪</span><span>Test API</span></a>
-    <?php if ($isAdmin): ?>
-    <div class="nav-sect">Admin</div>
-    <a href="users.php" class="nav-item"><span class="nav-icon">👥</span><span>Users</span></a>
-    <a href="logs.php"  class="nav-item"><span class="nav-icon">📋</span><span>Logs</span></a>
-    <a href="install.php" class="nav-item"><span class="nav-icon">⚙</span><span>Reinstall</span></a>
-    <?php endif; ?>
+    <a href="settings.php" class="nav-item"><span class="nav-icon">⚙️</span><span>Settings</span></a>
   </nav>
-  <div class="sb-user">
-    <div class="avatar"><?= strtoupper(substr($user['username'], 0, 1)) ?></div>
-    <div>
-      <div class="u-name"><?= $e($user['username']) ?></div>
-      <div class="u-role"><?= $user['is_admin'] ? 'Administrator' : 'User' ?></div>
-    </div>
-    <a href="logout.php" class="btn-out">✕</a>
-  </div>
 </aside>
 
 <!-- ══ MAIN ══ -->
@@ -366,7 +278,6 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
     <div class="tb-title">⚡ Dashboard</div>
     <div class="tb-right">
       <a href="player.php" class="btn btn-v btn-sm">📺 Open Player</a>
-      <span class="badge badge-<?= $user['is_admin'] ? 'admin' : 'user' ?>"><?= $user['is_admin'] ? 'Admin' : 'User' ?></span>
       <span style="font-size:.7rem;color:var(--muted)"><?= APP_NAME ?> v<?= APP_VERSION ?></span>
     </div>
   </div>
@@ -400,11 +311,6 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
         <div class="stat-val"><?= number_format($stats['vod']) ?></div>
         <div class="stat-lbl">VOD</div>
       </div>
-      <div class="stat" style="--c:var(--green)">
-        <div class="stat-icon">📶</div>
-        <div class="stat-val"><?= $stats['active_streams'] ?> <span style="font-size:1rem">LIVE</span></div>
-        <div class="stat-lbl">Active Streams</div>
-      </div>
       <div class="stat" style="--c:var(--amber)">
         <div class="stat-icon">📅</div>
         <div class="stat-val"><?= number_format($stats['epg_programs']) ?></div>
@@ -415,45 +321,9 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
         <div class="stat-val" style="font-size:1.1rem"><?= $stats['uptime'] ?></div>
         <div class="stat-lbl">Server Uptime</div>
       </div>
-      <?php if ($isAdmin): ?>
-      <div class="stat" style="--c:var(--blue)">
-        <div class="stat-icon">👥</div>
-        <div class="stat-val"><?= $stats['total_users'] ?></div>
-        <div class="stat-lbl">Total Users</div>
-      </div>
-      <?php endif; ?>
     </div>
 
-    <!-- ── API Quick Access Banner ── -->
-    <div class="api-banner mb-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <div style="font-weight:700;font-size:.93rem;margin-bottom:3px">🔌 Xtream API Credentials</div>
-          <div style="font-size:.78rem;color:var(--muted)">Connect TiviMate, IPTV Smarters, GSE or any Xtream-compatible app instantly.</div>
-        </div>
-        <div class="flex gap-2">
-          <a href="api_info.php" class="btn btn-g btn-sm">Full Guide →</a>
-          <a href="player.php" class="btn btn-v btn-sm">📺 Watch Now</a>
-        </div>
-      </div>
-      <div class="api-grid">
-        <?php
-        $creds = [
-          ['🌐 Server URL', APP_URL . '/xtreamtv', 'var(--blue)'],
-          ['👤 Username',   $user['username'],       'var(--purple)'],
-          ['🔑 Password',   substr($user['api_token'],0,18).'…','var(--cyan)'],
-          ['📥 M3U URL',    APP_URL.'/xtreamtv/proxy.php?action=m3u&t='.$user['api_token'],'var(--green)'],
-        ];
-        foreach ($creds as [$lbl, $val, $col]): ?>
-        <div class="api-card">
-          <div class="api-lbl"><?= $lbl ?></div>
-          <div class="api-val" style="color:<?= $col ?>"><?= $e(strlen($val) > 50 ? substr($val,0,50).'…' : $val) ?></div>
-        </div>
-        <?php endforeach; ?>
-      </div>
-    </div>
-
-    <!-- ── Add M3U / Active Streams ── -->
+    <!-- ── Add M3U / Quick Actions ── -->
     <div class="grid-2">
 
       <!-- Add M3U URL Form -->
@@ -464,7 +334,6 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
         </div>
         <div class="glass-body">
           <form method="POST">
-            <?= Auth::csrfField() ?>
             <input type="hidden" name="action" value="add_m3u_url">
             <div class="form-row">
               <div class="form-group">
@@ -488,41 +357,25 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
         </div>
       </div>
 
-      <!-- Active Streams Panel -->
+      <!-- Quick Actions -->
       <div class="glass">
-        <div class="glass-head">
-          🔴 Active Streams <span class="pulse"></span>
-          <span style="font-size:.72rem;color:var(--muted)"><?= count($activeStreams) ?> live</span>
+        <div class="glass-head">⚡ Quick Actions</div>
+        <div class="glass-body">
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            <a href="player.php" class="btn btn-v">📺 Live TV Player</a>
+            <button onclick="openModal('modalAddUrl')" class="btn btn-p">➕ Add Playlist</button>
+            <a href="playlists.php" class="btn btn-g">📡 Manage Playlists</a>
+            <a href="proxy.php?action=m3u" class="btn btn-s" target="_blank">⬇ Download All M3U</a>
+            <a href="settings.php" class="btn btn-g">⚙️ Settings</a>
+          </div>
         </div>
-        <?php if (empty($activeStreams)): ?>
-        <div style="padding:40px 20px;text-align:center;color:var(--muted)">
-          <div style="font-size:2.2rem;margin-bottom:8px">📡</div>
-          <div>No active streams right now</div>
-        </div>
-        <?php else: ?>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>User</th><th>Channel</th><th>IP</th><th>Started</th></tr></thead>
-            <tbody>
-              <?php foreach ($activeStreams as $s): ?>
-              <tr>
-                <td><span class="neon-b"><?= $e($s['username']) ?></span></td>
-                <td><?= $e($s['ch_name']) ?></td>
-                <td class="mono text-muted"><?= $e($s['ip'] ?? '—') ?></td>
-                <td class="text-muted" style="font-size:.76rem"><?= date('H:i:s', (int)$s['started_at']) ?></td>
-              </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
-        <?php endif; ?>
       </div>
     </div>
 
     <!-- ── Playlists Table ── -->
     <div class="glass mb-6">
       <div class="glass-head">
-        📡 My Playlists
+        📡 Playlists
         <div class="flex gap-2">
           <span style="font-size:.72rem;color:var(--muted)"><?= count($playlists) ?> total</span>
           <button onclick="openModal('modalAddUrl')" class="btn btn-p btn-sm">+ Add</button>
@@ -533,13 +386,12 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
           <thead>
             <tr>
               <th>#</th><th>Name</th>
-              <?php if ($isAdmin): ?><th>Owner</th><?php endif; ?>
               <th>Channels</th><th>EPG</th><th>Last Sync</th><th>Actions</th>
             </tr>
           </thead>
           <tbody>
           <?php if (empty($playlists)): ?>
-          <tr><td colspan="7" style="text-align:center;padding:48px;color:var(--muted)">
+          <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--muted)">
             <div style="font-size:2.5rem;margin-bottom:10px">📡</div>
             <div>No playlists yet. Add your first M3U above!</div>
           </td></tr>
@@ -553,7 +405,6 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
               <div class="mono text-muted" style="font-size:.68rem;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= $e($pl['url']) ?></div>
               <?php endif; ?>
             </td>
-            <?php if ($isAdmin): ?><td><span class="neon-b"><?= $e($pl['username']) ?></span></td><?php endif; ?>
             <td><span style="font-weight:700;color:var(--blue)"><?= number_format((int)$pl['channel_count']) ?></span></td>
             <td><?= $pl['epg_url'] ? '<span class="tag t-live">✓ EPG</span>' : '<span style="color:var(--muted)">—</span>' ?></td>
             <td class="text-muted" style="font-size:.76rem"><?= $pl['last_synced'] ? date('m/d H:i', (int)$pl['last_synced']) : 'Never' ?></td>
@@ -561,12 +412,11 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
               <div class="flex gap-2">
                 <a href="player.php?playlist_id=<?= $pl['id'] ?>" class="btn btn-g btn-sm">📺 Watch</a>
                 <a href="channels.php?playlist_id=<?= $pl['id'] ?>" class="btn btn-g btn-sm">☰ Channels</a>
-                <a href="proxy.php?action=m3u&playlist_id=<?= $pl['id'] ?>&t=<?= urlencode($user['api_token']) ?>" class="btn btn-s btn-sm">⬇ M3U</a>
+                <a href="proxy.php?action=m3u&playlist_id=<?= $pl['id'] ?>" class="btn btn-s btn-sm">⬇ M3U</a>
                 <?php if ($pl['epg_url']): ?>
-                <a href="epg_api.php?action=import&epg_url=<?= urlencode($pl['epg_url']) ?>&playlist_id=<?= $pl['id'] ?>&t=<?= urlencode($user['api_token']) ?>" class="btn btn-g btn-sm" target="_blank">📅 Sync EPG</a>
+                <a href="epg_api.php?action=import&epg_url=<?= urlencode($pl['epg_url']) ?>&playlist_id=<?= $pl['id'] ?>" class="btn btn-g btn-sm" target="_blank">📅 Sync EPG</a>
                 <?php endif; ?>
                 <form method="POST" style="display:inline">
-                  <?= Auth::csrfField() ?>
                   <input type="hidden" name="action" value="delete_playlist">
                   <input type="hidden" name="playlist_id" value="<?= $pl['id'] ?>">
                   <button type="submit" class="btn btn-d btn-sm" onclick="return confirm('Delete this playlist and all channels?')">🗑</button>
@@ -578,49 +428,6 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
           <?php endif; ?>
           </tbody>
         </table>
-      </div>
-    </div>
-
-    <!-- ── Quick Actions + Recent Activity ── -->
-    <div class="grid-2">
-      <div class="glass">
-        <div class="glass-head">⚡ Quick Actions</div>
-        <div class="glass-body">
-          <div style="display:flex;flex-wrap:wrap;gap:10px">
-            <a href="player.php" class="btn btn-v">📺 Live TV Player</a>
-            <button onclick="openModal('modalAddUrl')" class="btn btn-p">➕ Add Playlist</button>
-            <a href="api_info.php" class="btn btn-g">🔌 API Setup</a>
-            <a href="proxy.php?action=m3u&t=<?= urlencode($user['api_token']) ?>" class="btn btn-s" target="_blank">⬇ Download M3U</a>
-            <?php if ($isAdmin): ?>
-            <a href="users.php" class="btn btn-g">👥 Manage Users</a>
-            <a href="logs.php"  class="btn btn-g">📋 View Logs</a>
-            <?php endif; ?>
-            <a href="api.php?username=<?= urlencode($user['username']) ?>&password=<?= urlencode($user['api_token']) ?>" target="_blank" class="btn btn-g">🧪 Test Xtream API</a>
-          </div>
-        </div>
-      </div>
-
-      <div class="glass">
-        <div class="glass-head">📋 Recent Activity <?php if ($isAdmin): ?><a href="logs.php" class="btn btn-g btn-sm">View All</a><?php endif; ?></div>
-        <?php if (empty($recentLogs)): ?>
-        <div style="padding:32px;text-align:center;color:var(--muted);font-size:.82rem">No activity yet.</div>
-        <?php else: ?>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>User</th><th>Action</th><th>Details</th><th>Time</th></tr></thead>
-            <tbody>
-              <?php foreach ($recentLogs as $l): ?>
-              <tr>
-                <td><span class="neon-p"><?= $e($l['username'] ?? 'system') ?></span></td>
-                <td><span class="tag t-live"><?= $e($l['action']) ?></span></td>
-                <td class="text-muted" style="font-size:.76rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= $e($l['meta'] ?? '') ?></td>
-                <td class="text-muted" style="font-size:.72rem"><?= date('m/d H:i', (int)$l['created_at']) ?></td>
-              </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
-        <?php endif; ?>
       </div>
     </div>
 
@@ -643,7 +450,6 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
     </div>
     <form method="POST">
       <div class="modal-body">
-        <?= Auth::csrfField() ?>
         <input type="hidden" name="action" value="add_m3u_url">
         <div class="form-group"><label>Playlist Name</label><input type="text" name="name" placeholder="My IPTV" required></div>
         <div class="form-group"><label>M3U URL</label><input type="url" name="m3u_url" placeholder="http://provider.com/list.m3u" required></div>
@@ -658,10 +464,8 @@ footer{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-i
 </div>
 
 <script>
-/* ── XtreamTV Dashboard — Kobir Shah ── */
 console.log('%c⚡ XtreamTV IPTV OS v<?= APP_VERSION ?>', 'color:#00b4ff;font-size:14px;font-weight:bold;');
 console.log('%c✦ Powered by Kobir Shah ✦ All Rights Reserved', 'color:#a855f7;font-size:11px;font-weight:600;');
-console.log('%cDeveloper Credit: Kobir Shah | DEVELOPER_CREDIT: <?= DEVELOPER_CREDIT ?>', 'color:#64748b;font-size:10px;');
 
 function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
@@ -673,21 +477,6 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 document.querySelectorAll('.alert').forEach(a => {
   setTimeout(() => { a.style.opacity='0'; a.style.transition='.5s'; setTimeout(() => a.remove(), 500); }, 5000);
 });
-
-// Auto-refresh active streams counter every 30s
-setInterval(() => {
-  fetch('api.php?username=<?= urlencode($user['username']) ?>&password=<?= urlencode($user['api_token']) ?>')
-    .then(r=>r.json()).then(d=>{
-      const el = document.querySelector('.pulse');
-      if (el && d?.user_info?.active_cons !== undefined) {
-        const parent = el.closest('.glass-head');
-        if (parent) {
-          const countEl = parent.querySelector('span:last-child');
-          if (countEl) countEl.textContent = d.user_info.active_cons + ' live';
-        }
-      }
-    }).catch(()=>{});
-}, 30000);
 </script>
 </body>
 </html>

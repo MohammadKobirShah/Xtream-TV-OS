@@ -37,7 +37,7 @@ fi
 
 # ── Create required directories ─────────────────────────────
 STORAGE="/var/www/html/xtreamtv/storage"
-for dir in "$STORAGE" "$STORAGE/cache" "$STORAGE/logs" "$STORAGE/epg" "$STORAGE/sessions"; do
+for dir in "$STORAGE" "$STORAGE/cache" "$STORAGE/logs" "$STORAGE/epg"; do
     if [ ! -d "$dir" ]; then
         mkdir -p "$dir"
         echo "  [✓] Created: $dir"
@@ -70,13 +70,31 @@ if [ ! -f "$DB" ]; then
 fi
 
 echo ""
+# ── Schema version detection ──────────────────────────────
+SCHEMA_VERSION="2.0.1"
+if [ -f "$DB" ]; then
+    STORED_VER=$(php -r "
+        try {
+            \$pdo = new PDO('sqlite:$DB');
+            \$row = \$pdo->query(\"SELECT value FROM settings WHERE key='site_version'\")->fetch(PDO::FETCH_COLUMN);
+            echo \$row ?: '0';
+        } catch (Exception \$e) { echo '0'; }
+    " 2>/dev/null || echo "0")
+    if [ "$STORED_VER" != "$SCHEMA_VERSION" ]; then
+        echo "  [→] Schema version mismatch ($STORED_VER → $SCHEMA_VERSION) — re-running installer..."
+        rm -f "$DB"
+        php /var/www/html/xtreamtv/install.php --cli || true
+        if [ -f "$DB" ]; then
+            echo "  [✓] Database re-initialized with new schema"
+        fi
+    fi
+fi
+
 if [ "$PORT" != "" ]; then
-    echo "  🔐 Default login: admin / admin123"
     echo "  🌐 Panel URL:     http://0.0.0.0:$PORT/xtreamtv/"
     echo "  ✦  Powered by Kobir Shah"
     echo ""
 else
-    echo "  🔐 Default login: admin / admin123"
     echo "  🌐 Panel URL:     http://localhost:8080/xtreamtv/"
     echo "  ✦  Powered by Kobir Shah"
     echo ""

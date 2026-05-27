@@ -50,7 +50,7 @@ class M3UParser
      */
     public static function parseFromUrl(string $url, int $playlistId): int
     {
-        if (!Security::validateStreamUrl($url)) {
+        if (!(filter_var($url, FILTER_VALIDATE_URL) || str_starts_with($url, 'rtmp://') || str_starts_with($url, 'rtsp://'))) {
             throw new \RuntimeException('SSRF: URL not allowed');
         }
 
@@ -127,7 +127,7 @@ class M3UParser
         if ($pdo === null) {
             $pdo  = Database::getInstance();
             $stmt = $pdo->prepare(
-                "INSERT INTO channels (playlist_id, name, stream_url, logo, group_title, tvg_id, tvg_name, sort_order)
+                "INSERT INTO channels (playlist_id, name, stream_url, tvg_logo, group_title, tvg_id, tvg_name, sort_order)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
             );
         }
@@ -204,13 +204,13 @@ class M3UParser
         );
 
         while ($ch = $stmt->fetch()) {
-            $proxyUrl = rtrim($baseProxyUrl, '/') . '/xtreamtv/proxy.php?id=' . $ch['id'] . '&t=' . urlencode($_SESSION['token'] ?? '');
+            $proxyUrl = rtrim($baseProxyUrl, '/') . '/xtreamtv/proxy.php?id=' . $ch['id'];
             echo '#EXTINF:-1'
-                . ' tvg-id="'    . Security::e($ch['tvg_id'])   . '"'
-                . ' tvg-name="'  . Security::e($ch['tvg_name'])  . '"'
-                . ' tvg-logo="'  . Security::e($ch['logo'])      . '"'
-                . ' group-title="' . Security::e($ch['group_title']) . '"'
-                . ',' . Security::e($ch['name']) . "\n"
+                . ' tvg-id="'    . htmlspecialchars($ch['tvg_id'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')   . '"'
+                . ' tvg-name="'  . htmlspecialchars($ch['tvg_name'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')  . '"'
+                . ' tvg-logo="'  . htmlspecialchars($ch['tvg_logo'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')      . '"'
+                . ' group-title="' . htmlspecialchars($ch['group_title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"'
+                . ',' . htmlspecialchars($ch['name'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . "\n"
                 . $proxyUrl . "\n";
         }
     }

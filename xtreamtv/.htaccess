@@ -45,9 +45,9 @@ ServerSignature Off
     RewriteRule ^storage/epg/                 - [F,L,NC]
 
     # ── Xtream Codes Stream URL Routing ─────────────────────
-    # /live/{username}/{password}/{id}.ts  → live_stream.php
-    # /live/{username}/{password}/{id}.m3u8 → live_stream.php
-    RewriteRule ^live/([^/]+)/([^/]+)/(\d+)\.(ts|m3u8)$ live_stream.php?username=$1&password=$2&id=$3&ext=$4 [L,QSA]
+    # /live/{id}.ts  → live_stream.php
+    # /live/{id}.m3u8 → live_stream.php
+    RewriteRule ^live/(\d+)\.(ts|m3u8)$ live_stream.php?id=$1&ext=$2 [L,QSA]
 
     # /get.php alias → api.php (Xtream compatibility)
     RewriteCond %{REQUEST_FILENAME} !-f
@@ -78,7 +78,7 @@ ServerSignature Off
 </FilesMatch>
 
 # Block PHP config + database class files
-<FilesMatch "^(config|Database|Security|auth)\.(php)$">
+<FilesMatch "^(config|Database|Security)\.(php)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

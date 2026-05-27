@@ -36,11 +36,9 @@ final class StreamPassthru
      * For live HLS/TS streams:  continuous pipe until client disconnects.
      * For VOD (MP4/MKV):        supports Range header for seeking.
      *
-     * @param string $url     Upstream stream URL (pre-validated)
-     * @param int    $userId  For session tracking / byte counting
-     * @param string $token   API token (for session registration)
+     * @param string $url Upstream stream URL (pre-validated)
      */
-    public static function pipe(string $url, int $userId = 0, string $token = ''): void
+    public static function pipe(string $url): void
     {
         // ── Kill all output buffers — must be zero for streaming ──
         while (ob_get_level() > 0) {
@@ -52,7 +50,6 @@ final class StreamPassthru
         ignore_user_abort(false); // detect client disconnect
 
         // ── Open a memory-backed temp stream for cURL → fpassthru ──
-        // php://temp auto-spills to disk only if > 2MB (never will for live)
         $tmpStream = fopen('php://temp', 'r+b');
         if (!$tmpStream) {
             http_response_code(500);
@@ -73,10 +70,10 @@ final class StreamPassthru
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS      => 5,
             CURLOPT_CONNECTTIMEOUT => 15,
-            CURLOPT_TIMEOUT        => 0,          // no timeout — live stream
+            CURLOPT_TIMEOUT        => 0,
             CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_USERAGENT      => self::UA,   // spoof SmartTV UA
-            CURLOPT_ENCODING       => '',          // accept any encoding
+            CURLOPT_USERAGENT      => self::UA,
+            CURLOPT_ENCODING       => '',
             CURLOPT_HTTPHEADER     => [
                 'Accept: */*',
                 'Connection: keep-alive',
@@ -87,7 +84,7 @@ final class StreamPassthru
         // ── Forward Range header for VOD seeking support ───────────
         if (!empty($_SERVER['HTTP_RANGE'])) {
             curl_setopt($ch, CURLOPT_RANGE, substr($_SERVER['HTTP_RANGE'], 6));
-            http_response_code(206); // Partial Content
+            http_response_code(206);
         }
 
         // ── Header callback: forward only safe upstream headers ────
@@ -97,7 +94,6 @@ final class StreamPassthru
                           'accept-ranges:', 'content-range:', 'cache-control:'];
             foreach ($forwardIf as $prefix) {
                 if (str_starts_with($lower, $prefix)) {
-                    // Strip any header injection attempts
                     $safe = preg_replace('/[\r\n]+/', '', $header);
                     header($safe);
                     break;
@@ -107,44 +103,21 @@ final class StreamPassthru
         });
 
         // ── PRO-TIP #1: Write to temp handle → fpassthru ──────────
-        // cURL writes into $tmpStream. We rewind and fpassthru() it
-        // to stdout. For live streams we use CURLOPT_WRITEFUNCTION
-        // so we can flush continuously chunk-by-chunk.
-        $bytesSent  = 0;
-        $lastPing   = time();
-        $sessionId  = self::registerSession($userId, $token);
-
         curl_setopt($ch, CURLOPT_WRITEFUNCTION,
-            function ($curl, $data) use (&$bytesSent, &$lastPing, $userId, $sessionId, $tmpStream) {
+            function ($curl, $data) use ($tmpStream) {
 
-                // ── Client disconnect → abort proxy immediately ────
                 if (connection_aborted()) {
-                    self::endSession($sessionId, $bytesSent);
-                    return -1; // signals cURL to abort
+                    return -1;
                 }
 
-                // ── Write chunk to temp stream ────────────────────
                 fwrite($tmpStream, $data);
                 $len = strlen($data);
 
-                // ── Rewind + fpassthru() → zero-copy pipe to stdout ──
-                // This is the core Pro-Tip #1 optimisation:
-                // Instead of echo $data (PHP userland copy),
-                // fpassthru() uses the OS sendfile path.
                 rewind($tmpStream);
-                fpassthru($tmpStream);        // ← THE KEY LINE
-                ftruncate($tmpStream, 0);     // clear for next chunk
+                fpassthru($tmpStream);
+                ftruncate($tmpStream, 0);
                 fseek($tmpStream, 0);
-                flush();                      // force nginx/apache to send now
-
-                $bytesSent += $len;
-
-                // ── Ping session every 15s ────────────────────────
-                if ((time() - $lastPing) >= 15) {
-                    self::pingSession($sessionId, $bytesSent);
-                    $bytesSent = 0;
-                    $lastPing  = time();
-                }
+                flush();
 
                 return $len;
             }
@@ -157,56 +130,8 @@ final class StreamPassthru
         curl_close($ch);
         fclose($tmpStream);
 
-        // ── Cleanup session ────────────────────────────────────────
-        self::endSession($sessionId, $bytesSent);
-
         if ($errno && !connection_aborted()) {
             error_log("[XtreamTV][Passthru] cURL #{$errno}: {$errMsg} — Kobir Shah");
         }
-    }
-
-    // ── Session helpers ────────────────────────────────────────────
-
-    private static function registerSession(int $userId, string $token): int
-    {
-        if (!$userId) return 0;
-        try {
-            Database::query(
-                "INSERT OR IGNORE INTO stream_sessions
-                 (user_id, token, ip, user_agent, started_at, last_ping)
-                 VALUES (?, ?, ?, ?, strftime('%s','now'), strftime('%s','now'))",
-                [
-                    $userId,
-                    $token ?: bin2hex(random_bytes(8)),
-                    $_SERVER['REMOTE_ADDR'] ?? '',
-                    substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255),
-                ]
-            );
-            return (int)Database::lastInsertId();
-        } catch (\Throwable) {
-            return 0;
-        }
-    }
-
-    private static function pingSession(int $sessionId, int $bytes): void
-    {
-        if (!$sessionId) return;
-        try {
-            Database::query(
-                "UPDATE stream_sessions SET last_ping = strftime('%s','now'), bytes_sent = bytes_sent + ? WHERE id = ?",
-                [$bytes, $sessionId]
-            );
-        } catch (\Throwable) {}
-    }
-
-    private static function endSession(int $sessionId, int $remainingBytes): void
-    {
-        if (!$sessionId) return;
-        try {
-            Database::query(
-                "UPDATE stream_sessions SET last_ping = 0, bytes_sent = bytes_sent + ? WHERE id = ?",
-                [$remainingBytes, $sessionId]
-            );
-        } catch (\Throwable) {}
     }
 }

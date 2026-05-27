@@ -1,51 +1,16 @@
 <?php
-/**
- * ============================================================
- *  XtreamTV IPTV OS — EPG API Endpoint
- * ============================================================
- *  Developer        : Kobir Shah
- *  DEVELOPER_CREDIT : Powered by Kobir Shah
- *
- *  BugFix: self::formatProgram() called in procedural file
- *          (no class context) → changed to plain formatProgram()
- *  BugFix: array_map('formatProgram', ...) called before
- *          function definition — hoisted above call site.
- *  BugFix: Missing require_once for StreamPassthru / engine.
- * ============================================================
- */
-
 declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/src/Database.php';
-require_once __DIR__ . '/src/Security.php';
 require_once __DIR__ . '/engine.php';
 require_once __DIR__ . '/epg.php';
-require_once __DIR__ . '/auth.php';
 
-// ── Headers ───────────────────────────────────────────────────
 header('Content-Type: application/json; charset=utf-8');
 header('X-Developer: Kobir Shah');
 header('X-Powered-By: XtreamTV/' . APP_VERSION . ' by Kobir Shah');
 header('Access-Control-Allow-Origin: *');
 header('Cache-Control: no-store');
 
-// ── Auth: token or session ─────────────────────────────────────
-$user  = null;
-$token = trim($_GET['t'] ?? $_GET['token'] ?? '');
-if ($token) {
-    $user = Auth::byToken($token);
-}
-if (!$user && Auth::check()) {
-    $user = Auth::user();
-}
-if (!$user) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized', 'credit' => DEVELOPER_CREDIT]);
-    exit;
-}
-
-// ── Helper: format a programme row for API output ──────────────
-// FIX: defined BEFORE any call site to avoid "undefined function" fatal
 function formatProgram(array $p): array
 {
     return [
@@ -66,14 +31,7 @@ function formatProgram(array $p): array
 
 $action = trim($_GET['action'] ?? 'current_next');
 
-// ── ACTION: import (admin only) ────────────────────────────────
 if ($action === 'import') {
-    if (!$user['is_admin']) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Admin required', 'credit' => DEVELOPER_CREDIT]);
-        exit;
-    }
-
     $epgUrl     = trim($_GET['epg_url'] ?? '');
     $playlistId = (int)($_GET['playlist_id'] ?? 0);
 
@@ -102,7 +60,6 @@ if ($action === 'import') {
     exit;
 }
 
-// ── ACTION: batch (multiple channels) ─────────────────────────
 if ($action === 'batch') {
     $rawIds = trim($_GET['tvg_ids'] ?? '');
     if (!$rawIds) {
@@ -122,7 +79,6 @@ if ($action === 'batch') {
     $result = [];
 
     foreach ($data as $id => $programs) {
-        // FIX: was self::formatProgram() — no class context here
         $result[$id] = [
             'current' => $programs['current'] ? formatProgram($programs['current']) : null,
             'next'    => $programs['next']    ? formatProgram($programs['next'])    : null,
@@ -138,7 +94,6 @@ if ($action === 'batch') {
     exit;
 }
 
-// ── ACTION: schedule (N-hour schedule) ────────────────────────
 if ($action === 'schedule') {
     $tvgId = trim($_GET['tvg_id'] ?? '');
     $hours = min(24, max(1, (int)($_GET['hours'] ?? 6)));
@@ -150,7 +105,6 @@ if ($action === 'schedule') {
     }
 
     $programs  = EPGEngine::getSchedule($tvgId, $hours);
-    // FIX: was array_map('formatProgram', ...) before function definition
     $formatted = array_map('formatProgram', $programs);
 
     echo json_encode([
@@ -164,7 +118,6 @@ if ($action === 'schedule') {
     exit;
 }
 
-// ── DEFAULT: current + next for single channel ─────────────────
 $tvgId = trim($_GET['tvg_id'] ?? '');
 if (!$tvgId) {
     http_response_code(400);

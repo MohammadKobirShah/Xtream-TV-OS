@@ -1,7 +1,7 @@
 <?php
 /**
  * ============================================================
- *  XtreamTV IPTV OS — Admin Settings Panel
+ *  XtreamTV IPTV OS — Settings Panel
  * ============================================================
  *  Developer        : Kobir Shah
  *  DEVELOPER_CREDIT : Powered by Kobir Shah
@@ -18,66 +18,49 @@
 declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/src/Database.php';
-require_once __DIR__ . '/src/Security.php';
 require_once __DIR__ . '/src/FFmpegProxy.php';
 require_once __DIR__ . '/src/View.php';
-require_once __DIR__ . '/auth.php';
 
-Auth::requireLogin();
-if (!Auth::isAdmin()) {
-    header('Location: /xtreamtv/index.php');
-    exit;
-}
+$flash  = '';
+$flashT = '';
 
-$csrf    = Auth::csrfToken();
-$flash   = '';
-$flashT  = '';
-
-// ── Handle POST ───────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!Auth::verifyCsrf($_POST['csrf_token'] ?? '')) {
-        $flash = 'Invalid CSRF token.'; $flashT = 'error';
-    } else {
-        $act = $_POST['action'] ?? '';
+    $act = $_POST['action'] ?? '';
 
-        // ── Save global settings ──────────────────────────────
-        if ($act === 'save_settings') {
-            $allowed = [
-                'ffmpeg_mode', 'ffmpeg_quality', 'site_name',
-                'proxy_useragent', 'max_cache_age', 'epg_cache_hours', 'allow_register',
-            ];
-            foreach ($allowed as $key) {
-                if (isset($_POST[$key])) {
-                    Database::setSetting($key, trim($_POST[$key]));
-                }
-            }
-            $flash = '✅ Settings saved successfully.'; $flashT = 'success';
-        }
-
-        // ── Update per-channel FFmpeg mode ────────────────────
-        if ($act === 'set_channel_mode') {
-            $cid  = (int)($_POST['channel_id'] ?? 0);
-            $mode = $_POST['ffmpeg_mode'] ?? 'inherit';
-            if (in_array($mode, ['inherit', 'off', 'on', 'auto'], strict: true) && $cid > 0) {
-                Database::query(
-                    "UPDATE channels SET ffmpeg_mode = ? WHERE id = ?",
-                    [$mode, $cid]
-                );
-                $flash = "Channel #{$cid} FFmpeg mode set to '{$mode}'."; $flashT = 'success';
+    if ($act === 'save_settings') {
+        $allowed = [
+            'ffmpeg_mode', 'ffmpeg_quality', 'site_name',
+            'proxy_useragent', 'max_cache_age', 'epg_cache_hours', 'allow_register',
+        ];
+        foreach ($allowed as $key) {
+            if (isset($_POST[$key])) {
+                Database::setSetting($key, trim($_POST[$key]));
             }
         }
+        $flash = 'Saved successfully.'; $flashT = 'success';
+    }
 
-        // ── Bulk reset per-channel modes ──────────────────────
-        if ($act === 'reset_channel_modes') {
-            Database::query("UPDATE channels SET ffmpeg_mode = 'inherit'");
-            $flash = 'All channel FFmpeg modes reset to inherit.'; $flashT = 'success';
+    if ($act === 'set_channel_mode') {
+        $cid  = (int)($_POST['channel_id'] ?? 0);
+        $mode = $_POST['ffmpeg_mode'] ?? 'inherit';
+        if (in_array($mode, ['inherit', 'off', 'on', 'auto'], strict: true) && $cid > 0) {
+            Database::query(
+                "UPDATE channels SET ffmpeg_mode = ? WHERE id = ?",
+                [$mode, $cid]
+            );
+            $flash = "Channel #{$cid} FFmpeg mode set to '{$mode}'."; $flashT = 'success';
         }
     }
+
+    if ($act === 'reset_channel_modes') {
+        Database::query("UPDATE channels SET ffmpeg_mode = 'inherit'");
+        $flash = 'All channel FFmpeg modes reset to inherit.'; $flashT = 'success';
+    }
+
     header('Location: /xtreamtv/settings.php');
     exit;
 }
 
-// ── Load current settings ─────────────────────────────────────
 $settings = Database::query("SELECT key, value FROM settings ORDER BY key")->fetchAll(\PDO::FETCH_KEY_PAIR);
 
 $ffmpegMode    = $settings['ffmpeg_mode']    ?? 'off';
@@ -85,7 +68,6 @@ $ffmpegQuality = $settings['ffmpeg_quality'] ?? 'passthru';
 $ffmpegAvail   = FFmpegProxy::available();
 $ffmpegVersion = FFmpegProxy::version();
 
-// ── Channels with custom FFmpeg modes ─────────────────────────
 $customChannels = Database::query(
     "SELECT c.id, c.name, c.group_title, c.ffmpeg_mode, p.name AS playlist_name
      FROM channels c JOIN playlists p ON p.id = c.playlist_id
@@ -94,7 +76,6 @@ $customChannels = Database::query(
      LIMIT 100"
 )->fetchAll();
 
-// ── Paginated channel list for per-channel overrides ──────────
 $page     = max(1, (int)($_GET['page'] ?? 1));
 $perPage  = 30;
 $offset   = ($page - 1) * $perPage;
@@ -129,7 +110,6 @@ ob_start();
 </div>
 <?php endif; ?>
 
-<!-- ══ FFmpeg Status Banner ══ -->
 <div class="glass mb-6" style="padding:20px 24px;background:<?= $ffmpegAvail ? 'linear-gradient(90deg,rgba(16,185,129,.06),rgba(6,182,212,.04))' : 'rgba(239,68,68,.06)' ?>;border-color:<?= $ffmpegAvail ? 'rgba(16,185,129,.25)' : 'rgba(239,68,68,.25)' ?>">
   <div class="flex items-center justify-between">
     <div style="display:flex;align-items:center;gap:14px">
@@ -152,27 +132,23 @@ ob_start();
 
 <div class="grid-2 mb-6">
 
-  <!-- ══ Global FFmpeg Settings ══ -->
   <div class="glass">
     <div class="glass-header">
-      <div class="glass-title">⚙️ FFmpeg Global Mode</div>
+      <div class="glass-title">FFmpeg Global Mode</div>
     </div>
     <div class="glass-body">
       <form method="POST">
-        <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
         <input type="hidden" name="action" value="save_settings">
 
-        <!-- FFmpeg Mode Toggle -->
         <div class="form-group">
           <label>FFmpeg Restream Mode</label>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:6px">
-            <?php foreach (['off'=>['🟢','OFF — Passthru (Default)','Uses fpassthru() — fastest, zero CPU'],
-                             'on' =>['🔴','ON — Always FFmpeg','All streams go through FFmpeg'],
-                             'auto'=>['🟡','AUTO — Smart Fallback','Passthru first; FFmpeg if stream fails']] as $val=>[$icon,$lbl,$desc]): ?>
+            <?php foreach (['off'=>['OFF — Passthru (Default)','Uses fpassthru() — fastest, zero CPU'],
+                             'on' =>['ON — Always FFmpeg','All streams go through FFmpeg'],
+                             'auto'=>['AUTO — Smart Fallback','Passthru first; FFmpeg if stream fails']] as $val=>[$lbl,$desc]): ?>
             <label style="cursor:pointer;display:block">
               <input type="radio" name="ffmpeg_mode" value="<?= $val ?>" <?= $ffmpegMode===$val?'checked':'' ?> style="display:none">
-              <div class="mode-card <?= $ffmpegMode===$val?'mode-active':'' ?>" onclick="this.closest('label').querySelector('input').checked=true;document.querySelectorAll('.mode-card').forEach(c=>c.classList.remove('mode-active'));this.classList.add('mode-active')">
-                <div style="font-size:1.5rem;margin-bottom:6px"><?= $icon ?></div>
+              <div class="mode-card <?= $ffmpegMode===$val?'mode-active':'' ?>">
                 <div style="font-weight:700;font-size:.78rem"><?= $lbl ?></div>
                 <div style="font-size:.68rem;color:var(--text-muted);margin-top:3px"><?= $desc ?></div>
               </div>
@@ -181,7 +157,6 @@ ob_start();
           </div>
         </div>
 
-        <!-- Quality Preset -->
         <div class="form-group" style="margin-top:16px">
           <label>FFmpeg Quality Preset</label>
           <select name="ffmpeg_quality">
@@ -193,7 +168,6 @@ ob_start();
           </select>
         </div>
 
-        <!-- Site settings -->
         <div class="form-group">
           <label>Site Name</label>
           <input type="text" name="site_name" value="<?= $e($settings['site_name'] ?? 'XtreamTV IPTV OS') ?>">
@@ -213,26 +187,24 @@ ob_start();
           </div>
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:4px">💾 Save Settings</button>
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:4px">Save Settings</button>
       </form>
     </div>
   </div>
 
-  <!-- ══ Mode Legend + Custom Channels Summary ══ -->
   <div class="glass">
     <div class="glass-header">
-      <div class="glass-title">📖 Mode Reference</div>
+      <div class="glass-title">Mode Reference</div>
     </div>
     <div class="glass-body">
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
         <?php foreach ([
-          ['🟢','OFF — fpassthru()','Default. Best for all streams. Zero CPU overhead. Uses kernel sendfile.','var(--neon-green)'],
-          ['🔴','ON — FFmpeg always','All streams re-mux through FFmpeg. Fixes broken streams, bypasses CDN blocks.','var(--neon-red)'],
-          ['🟡','AUTO — Smart','Probes upstream first. Uses passthru if reachable, FFmpeg as fallback.','var(--neon-amber)'],
-          ['⚪','INHERIT (per-channel)','Channel uses the global setting above.','var(--text-muted)'],
-        ] as [$ico,$lbl,$desc,$col]): ?>
+          ['OFF — fpassthru()','Default. Best for all streams. Zero CPU overhead. Uses kernel sendfile.','var(--neon-green)'],
+          ['ON — FFmpeg always','All streams re-mux through FFmpeg. Fixes broken streams, bypasses CDN blocks.','var(--neon-red)'],
+          ['AUTO — Smart','Probes upstream first. Uses passthru if reachable, FFmpeg as fallback.','var(--neon-amber)'],
+          ['INHERIT (per-channel)','Channel uses the global setting above.','var(--text-muted)'],
+        ] as [$lbl,$desc,$col]): ?>
         <div style="display:flex;gap:12px;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--border)">
-          <div style="font-size:1.2rem;flex-shrink:0"><?= $ico ?></div>
           <div>
             <div style="font-weight:700;font-size:.82rem;color:<?= $col ?>"><?= $lbl ?></div>
             <div style="font-size:.74rem;color:var(--text-muted);margin-top:2px"><?= $desc ?></div>
@@ -258,14 +230,12 @@ ob_start();
         <?php endforeach; ?>
       </div>
       <form method="POST" style="margin-top:12px">
-        <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
         <input type="hidden" name="action" value="reset_channel_modes">
-        <button type="submit" class="btn btn-ghost btn-sm" onclick="return confirm('Reset ALL channels to inherit global setting?')" style="width:100%">🔄 Reset All Channels to Inherit</button>
+        <button type="submit" class="btn btn-ghost btn-sm" onclick="return confirm('Reset ALL channels to inherit global setting?')" style="width:100%">Reset All Channels to Inherit</button>
       </form>
       <?php else: ?>
       <div style="text-align:center;padding:24px 0;color:var(--text-muted);font-size:.82rem">
-        <div style="font-size:2rem;margin-bottom:6px">✅</div>
-        All channels using global mode
+        <div style="font-size:2rem;margin-bottom:6px">All channels using global mode</div>
       </div>
       <?php endif; ?>
     </div>
@@ -273,20 +243,18 @@ ob_start();
 
 </div>
 
-<!-- ══ Per-Channel FFmpeg Override Table ══ -->
 <div class="glass">
   <div class="glass-header">
-    <div class="glass-title">📺 Per-Channel FFmpeg Override</div>
+    <div class="glass-title">Per-Channel FFmpeg Override</div>
     <span style="font-size:.75rem;color:var(--text-muted)"><?= number_format($total) ?> channels</span>
   </div>
 
-  <!-- Search -->
   <div style="padding:14px 20px;border-bottom:1px solid var(--border)">
     <form method="GET" style="display:flex;gap:10px">
       <input type="text" name="q" placeholder="Search channels..." value="<?= $e($search) ?>"
              style="flex:1;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text-primary);outline:none;font-size:.85rem">
-      <button type="submit" class="btn btn-ghost btn-sm">🔍</button>
-      <?php if ($search): ?><a href="/xtreamtv/settings.php" class="btn btn-danger btn-sm">✕</a><?php endif; ?>
+      <button type="submit" class="btn btn-ghost btn-sm">Search</button>
+      <?php if ($search): ?><a href="/xtreamtv/settings.php" class="btn btn-danger btn-sm">Clear</a><?php endif; ?>
     </form>
   </div>
 
@@ -302,7 +270,7 @@ ob_start();
         $mc = $modeColors[$ch['ffmpeg_mode']] ?? $modeColors['inherit']; ?>
       <tr>
         <td style="font-weight:600;font-size:.85rem"><?= $e($ch['name']) ?></td>
-        <td style="font-size:.78rem;color:var(--neon-purple)"><?= $e($ch['group_title']) ?></td>
+        <td style="font-size:.78rem"><?= $e($ch['group_title']) ?></td>
         <td style="font-size:.75rem;color:var(--text-muted)"><?= $e($ch['playlist_name']) ?></td>
         <td>
           <span style="font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:20px;background:<?= $mc['bg'] ?>;color:<?= $mc['color'] ?>">
@@ -311,7 +279,6 @@ ob_start();
         </td>
         <td>
           <form method="POST" style="display:flex;gap:6px;align-items:center">
-            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
             <input type="hidden" name="action" value="set_channel_mode">
             <input type="hidden" name="channel_id" value="<?= (int)$ch['id'] ?>">
             <select name="ffmpeg_mode" style="padding:4px 8px;border-radius:7px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text-primary);font-size:.75rem;outline:none">
@@ -328,16 +295,15 @@ ob_start();
     </table>
   </div>
 
-  <!-- Pagination -->
   <?php if ($pages > 1): ?>
   <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:.82rem">
     <span style="color:var(--text-muted)">Page <?= $page ?> of <?= $pages ?></span>
     <div class="flex gap-2">
       <?php if ($page > 1): ?>
-      <a href="?q=<?= urlencode($search) ?>&page=<?= $page-1 ?>" class="btn btn-ghost btn-sm">← Prev</a>
+      <a href="?q=<?= urlencode($search) ?>&page=<?= $page-1 ?>" class="btn btn-ghost btn-sm">Prev</a>
       <?php endif; ?>
       <?php if ($page < $pages): ?>
-      <a href="?q=<?= urlencode($search) ?>&page=<?= $page+1 ?>" class="btn btn-primary btn-sm">Next →</a>
+      <a href="?q=<?= urlencode($search) ?>&page=<?= $page+1 ?>" class="btn btn-primary btn-sm">Next</a>
       <?php endif; ?>
     </div>
   </div>

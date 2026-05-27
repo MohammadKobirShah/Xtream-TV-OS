@@ -258,9 +258,8 @@ final class M3UEngine
      * set_time_limit(0) is called to allow indefinite live streams.
      *
      * @param  string $streamUrl Decoded upstream stream URL
-     * @param  int    $userId    User ID for bandwidth tracking
      */
-    public static function proxyStream(string $streamUrl, int $userId = 0): void
+    public static function proxyStream(string $streamUrl): void
     {
         // ── SSRF guard ──────────────────────────────────
         self::assertSafeUrl($streamUrl);
@@ -311,10 +310,7 @@ final class M3UEngine
         });
 
         // ── Write callback: pipe chunks directly to client ──
-        $bytesSent  = 0;
-        $lastUpdate = time();
-
-        curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($curl, $data) use (&$bytesSent, &$lastUpdate, $userId) {
+        curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($curl, $data) {
             // Stop immediately if client disconnected
             if (connection_aborted()) {
                 return -1; // Signal cURL to abort
@@ -322,19 +318,6 @@ final class M3UEngine
 
             echo $data;
             flush();
-
-            $bytesSent += strlen($data);
-
-            // Update byte count in DB every 15 seconds
-            if ($userId && (time() - $lastUpdate) >= 15) {
-                Database::query(
-                    "UPDATE stream_sessions SET last_ping = strftime('%s','now'), bytes_sent = bytes_sent + ?
-                     WHERE user_id = ? ORDER BY id DESC LIMIT 1",
-                    [$bytesSent, $userId]
-                );
-                $bytesSent  = 0;
-                $lastUpdate = time();
-            }
 
             return strlen($data);
         });

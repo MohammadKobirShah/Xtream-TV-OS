@@ -1,140 +1,63 @@
 <?php
-/**
- * ============================================================
- *  XtreamTV IPTV OS — Xtream Codes API (Full Emulation)
- *  Phase 4: Xtream Codes API Compatibility
- * ============================================================
- *  Developer        : Kobir Shah
- *  DEVELOPER_CREDIT : Powered by Kobir Shah
- *
- *  Compatible with:
- *    TiviMate, IPTV Smarters Pro, GSE Smart IPTV,
- *    Perfect Player, Kodi (PVR IPTV Simple), VLC
- *
- *  Supported actions:
- *    (none)                  → user_info + server_info
- *    get_live_categories     → channel group list
- *    get_live_streams        → live channel list
- *    get_vod_categories      → VOD category list
- *    get_vod_streams         → VOD stream list
- *    get_vod_info            → VOD metadata
- *    get_series_categories   → Series categories
- *    get_series              → Series list
- *    get_short_epg           → Current + next EPG for stream
- *    get_epg_channels        → EPG for multiple channels
- * ============================================================
- */
-
 declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/src/Database.php';
-require_once __DIR__ . '/src/Security.php';
 require_once __DIR__ . '/engine.php';
 require_once __DIR__ . '/epg.php';
-require_once __DIR__ . '/auth.php';
 
 error_log('[XtreamTV][API] Request: ' . ($_SERVER['REQUEST_URI'] ?? '') . ' — Kobir Shah');
 
-// ── Security Headers ──────────────────────────────────────
 header('Content-Type: application/json; charset=utf-8');
-header('X-Developer: Kobir Shah');               // ← Credit in EVERY API response header
+header('X-Developer: Kobir Shah');
 header('X-Powered-By: XtreamTV/' . APP_VERSION);
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST');
 header('Cache-Control: no-store, no-cache');
 
-// ── Authentication ────────────────────────────────────────
-$username = trim($_GET['username'] ?? $_POST['username'] ?? '');
-$password = trim($_GET['password'] ?? $_POST['password'] ?? '');
-
-if (!$username || !$password) {
-    echo json_encode([
-        'user_info'   => ['auth' => 0, 'message' => 'Missing credentials'],
-        'server_info' => serverInfo(),
-        'credit'      => DEVELOPER_CREDIT,
-    ]);
-    exit;
-}
-
-$user = Auth::attempt($username, $password);
-
-if (!$user) {
-    // Try token-based auth (password IS the API token)
-    $user = Auth::byUsernameToken($username, $password);
-}
-
-if (!$user) {
-    http_response_code(401);
-    echo json_encode([
-        'user_info'   => ['auth' => 0, 'message' => 'Invalid credentials'],
-        'server_info' => serverInfo(),
-        'credit'      => DEVELOPER_CREDIT,
-    ]);
-    exit;
-}
-
-// ── Route to action ───────────────────────────────────────
 $action = trim($_GET['action'] ?? $_POST['action'] ?? '');
 
 match ($action) {
-    'get_live_categories'  => getLiveCategories($user),
-    'get_live_streams'     => getLiveStreams($user),
-    'get_vod_categories'   => getVodCategories($user),
-    'get_vod_streams'      => getVodStreams($user),
-    'get_vod_info'         => getVodInfo($user),
-    'get_series_categories'=> (function() { echo json_encode([]); })(), // Placeholder
+    'get_live_categories'  => getLiveCategories(),
+    'get_live_streams'     => getLiveStreams(),
+    'get_vod_categories'   => getVodCategories(),
+    'get_vod_streams'      => getVodStreams(),
+    'get_vod_info'         => getVodInfo(),
+    'get_series_categories'=> (function() { echo json_encode([]); })(),
     'get_series'           => (function() { echo json_encode([]); })(),
-    'get_short_epg'        => getShortEPG($user),
-    'get_epg_channels'     => getEPGChannels($user),
-    default                => userInfo($user),        // No action = user/server info
+    'get_short_epg'        => getShortEPG(),
+    'get_epg_channels'     => getEPGChannels(),
+    default                => userInfo(),
 };
 
-// ════════════════════════════════════════════════════════════
-//  ACTION HANDLERS
-// ════════════════════════════════════════════════════════════
-
-/** No action → User Info + Server Info */
-function userInfo(array $user): void
+function userInfo(): void
 {
-    $active = (int)Database::query(
-        "SELECT COUNT(*) FROM stream_sessions WHERE user_id = ? AND last_ping > ?",
-        [$user['id'], time() - 30]
-    )->fetchColumn();
-
-    $expires = $user['expires_at']
-        ? date('Y-m-d H:i:s', (int)$user['expires_at'])
-        : '2099-12-31 23:59:59';
-
     echo json_encode([
         'user_info' => [
-            'username'        => $user['username'],
-            'password'        => $user['api_token'],
+            'username'        => 'xtreamtv',
+            'password'        => APP_VERSION,
             'message'         => DEVELOPER_CREDIT . ' | XtreamTV v' . APP_VERSION,
             'auth'            => 1,
             'status'          => 'Active',
-            'exp_date'        => $expires,
+            'exp_date'        => '2099-12-31 23:59:59',
             'is_trial'        => '0',
-            'active_cons'     => (string)$active,
-            'created_at'      => (string)($user['created_at'] ?? time()),
-            'max_connections' => (string)($user['max_streams'] ?? 1),
+            'active_cons'     => '0',
+            'created_at'      => (string)time(),
+            'max_connections' => '10',
             'allowed_output_formats' => ['m3u8', 'ts', 'rtmp'],
         ],
         'server_info' => serverInfo(),
-        'credit'      => DEVELOPER_CREDIT,   // ← Kobir Shah in every response body
+        'credit'      => DEVELOPER_CREDIT,
         'developer'   => 'Kobir Shah',
     ]);
 }
 
-/** action=get_live_categories */
-function getLiveCategories(array $user): void
+function getLiveCategories(): void
 {
     $groups = Database::query(
         "SELECT DISTINCT c.group_title
          FROM channels c
-         JOIN playlists p ON p.id = c.playlist_id
-         WHERE p.user_id = ? AND c.is_active = 1 AND c.stream_type = 'live'
-         ORDER BY c.group_title",
-        [$user['id']]
+         WHERE c.is_active = 1 AND c.stream_type = 'live'
+         ORDER BY c.group_title"
     )->fetchAll(\PDO::FETCH_COLUMN);
 
     $out = [];
@@ -145,15 +68,12 @@ function getLiveCategories(array $user): void
             'parent_id'     => 0,
         ];
     }
-
-    header('X-Developer: Kobir Shah'); // Repeated on every response
     echo json_encode($out);
 }
 
-/** action=get_live_streams[&category_id=N] */
-function getLiveStreams(array $user): void
+function getLiveStreams(): void
 {
-    [$where, $params] = buildStreamFilter($user, 'live');
+    [$where, $params] = buildStreamFilter('live');
     $channels = Database::query(
         "SELECT c.*, p.name AS playlist_name
          FROM channels c
@@ -166,7 +86,7 @@ function getLiveStreams(array $user): void
     $proxyBase = APP_URL . '/xtreamtv/proxy.php';
     $out = [];
     foreach ($channels as $ch) {
-        $streamUrl = $proxyBase . '?url=' . base64_encode($ch['stream_url']) . '&t=' . urlencode($user['api_token']);
+        $streamUrl = $proxyBase . '?url=' . base64_encode($ch['stream_url']);
         $out[] = [
             'num'              => $ch['id'],
             'name'             => $ch['name'],
@@ -178,24 +98,20 @@ function getLiveStreams(array $user): void
             'category_id'      => '1',
             'custom_sid'       => '',
             'tv_archive'       => 0,
-            'direct_source'    => $streamUrl,      // Points to our proxy — hides origin
+            'direct_source'    => $streamUrl,
             'tv_archive_duration' => 0,
         ];
     }
-
     echo json_encode($out);
 }
 
-/** action=get_vod_categories */
-function getVodCategories(array $user): void
+function getVodCategories(): void
 {
     $groups = Database::query(
         "SELECT DISTINCT c.group_title
          FROM channels c
-         JOIN playlists p ON p.id = c.playlist_id
-         WHERE p.user_id = ? AND c.is_active = 1 AND c.stream_type = 'vod'
-         ORDER BY c.group_title",
-        [$user['id']]
+         WHERE c.is_active = 1 AND c.stream_type = 'vod'
+         ORDER BY c.group_title"
     )->fetchAll(\PDO::FETCH_COLUMN);
 
     $out = [];
@@ -205,10 +121,9 @@ function getVodCategories(array $user): void
     echo json_encode($out);
 }
 
-/** action=get_vod_streams[&category_id=N] */
-function getVodStreams(array $user): void
+function getVodStreams(): void
 {
-    [$where, $params] = buildStreamFilter($user, 'vod');
+    [$where, $params] = buildStreamFilter('vod');
     $channels = Database::query(
         "SELECT c.* FROM channels c
          JOIN playlists p ON p.id = c.playlist_id
@@ -219,7 +134,7 @@ function getVodStreams(array $user): void
     $proxyBase = APP_URL . '/xtreamtv/proxy.php';
     $out = [];
     foreach ($channels as $ch) {
-        $streamUrl = $proxyBase . '?url=' . base64_encode($ch['stream_url']) . '&t=' . urlencode($user['api_token']);
+        $streamUrl = $proxyBase . '?url=' . base64_encode($ch['stream_url']);
         $out[] = [
             'num'           => $ch['id'],
             'name'          => $ch['name'],
@@ -235,14 +150,13 @@ function getVodStreams(array $user): void
     echo json_encode($out);
 }
 
-/** action=get_vod_info&vod_id=N */
-function getVodInfo(array $user): void
+function getVodInfo(): void
 {
     $id = (int)($_GET['vod_id'] ?? 0);
     $ch = Database::query("SELECT * FROM channels WHERE id = ? AND is_active = 1", [$id])->fetch();
     if (!$ch) { echo json_encode([]); return; }
 
-    $proxyUrl = APP_URL . '/xtreamtv/proxy.php?url=' . base64_encode($ch['stream_url']) . '&t=' . urlencode($user['api_token']);
+    $proxyUrl = APP_URL . '/xtreamtv/proxy.php?url=' . base64_encode($ch['stream_url']);
     echo json_encode([
         'info' => [
             'name'       => $ch['name'],
@@ -264,8 +178,7 @@ function getVodInfo(array $user): void
     ]);
 }
 
-/** action=get_short_epg&stream_id=N[&limit=2] */
-function getShortEPG(array $user): void
+function getShortEPG(): void
 {
     $streamId = (int)($_GET['stream_id'] ?? 0);
     $ch = Database::query("SELECT tvg_id FROM channels WHERE id = ?", [$streamId])->fetch();
@@ -291,14 +204,11 @@ function getShortEPG(array $user): void
     echo json_encode(['epg_listings' => $listings, 'credit' => DEVELOPER_CREDIT]);
 }
 
-/** action=get_epg_channels */
-function getEPGChannels(array $user): void
+function getEPGChannels(): void
 {
     $channels = Database::query(
         "SELECT DISTINCT c.tvg_id, c.name, c.tvg_logo FROM channels c
-         JOIN playlists p ON p.id = c.playlist_id
-         WHERE p.user_id = ? AND c.is_active = 1 AND c.tvg_id != ''",
-        [$user['id']]
+         WHERE c.is_active = 1 AND c.tvg_id != ''"
     )->fetchAll();
 
     $out = [];
@@ -318,27 +228,19 @@ function getEPGChannels(array $user): void
     echo json_encode(['channels' => $out, 'credit' => DEVELOPER_CREDIT]);
 }
 
-// ════════════════════════════════════════════════════════════
-//  SHARED HELPERS
-// ════════════════════════════════════════════════════════════
-
-/** Build channel WHERE clause with optional category filter */
-function buildStreamFilter(array $user, string $streamType): array
+function buildStreamFilter(string $streamType): array
 {
-    $where  = "p.user_id = ? AND c.is_active = 1 AND c.stream_type = ?";
-    $params = [$user['id'], $streamType];
+    $where  = "c.is_active = 1 AND c.stream_type = ?";
+    $params = [$streamType];
 
     if (!empty($_GET['category_id'])) {
-        // Map numeric category_id back to group_title
         $idx = (int)$_GET['category_id'] - ($streamType === 'vod' ? 100 : 1);
         $groups = Database::query(
             "SELECT DISTINCT group_title FROM channels c
-             JOIN playlists p ON p.id = c.playlist_id
-             WHERE p.user_id = ? AND c.stream_type = ?
+             WHERE c.stream_type = ?
              ORDER BY group_title",
-            [$user['id'], $streamType]
+            [$streamType]
         )->fetchAll(\PDO::FETCH_COLUMN);
-
         if (isset($groups[$idx])) {
             $where    .= " AND c.group_title = ?";
             $params[]  = $groups[$idx];
@@ -347,7 +249,6 @@ function buildStreamFilter(array $user, string $streamType): array
     return [$where, $params];
 }
 
-/** Build server_info block (injected in every response) */
 function serverInfo(): array
 {
     $parsed = parse_url(APP_URL);
@@ -364,7 +265,7 @@ function serverInfo(): array
         'timestamp_now'    => time(),
         'time_now'         => date('Y-m-d H:i:s'),
         'process'          => 'XtreamTV',
-        'credit'           => DEVELOPER_CREDIT,  // ← Kobir Shah in server_info block
+        'credit'           => DEVELOPER_CREDIT,
         'developer'        => 'Kobir Shah',
     ];
 }

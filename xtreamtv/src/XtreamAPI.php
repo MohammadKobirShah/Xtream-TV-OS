@@ -11,13 +11,6 @@ declare(strict_types=1);
 
 class XtreamAPI
 {
-    private array $user;
-
-    public function __construct(array $user)
-    {
-        $this->user = $user;
-    }
-
     /** Route API action */
     public function handle(string $action, array $params): void
     {
@@ -35,30 +28,21 @@ class XtreamAPI
         };
     }
 
-    /** /player_api.php?username=X&password=X — user info */
+    /** /player_api.php — user info (no auth required) */
     public function userInfo(): void
     {
-        $expires = $this->user['expires_at']
-            ? date('Y-m-d H:i:s', (int)$this->user['expires_at'])
-            : '2099-12-31 23:59:59';
-
-        $activeSessions = (int)Database::query(
-            "SELECT COUNT(*) FROM stream_sessions WHERE user_id = ? AND last_ping > ?",
-            [$this->user['id'], time() - 30]
-        )->fetchColumn();
-
         echo json_encode([
             'user_info' => [
-                'username'         => $this->user['username'],
-                'password'         => $this->user['api_token'],
+                'username'         => 'xtreamtv',
+                'password'         => '',
                 'message'          => 'Powered by XtreamTV — ' . APP_AUTHOR,
                 'auth'             => 1,
                 'status'           => 'Active',
-                'exp_date'         => $expires,
+                'exp_date'         => '2099-12-31 23:59:59',
                 'is_trial'         => '0',
-                'active_cons'      => (string)$activeSessions,
-                'created_at'       => (string)$this->user['created_at'],
-                'max_connections'  => (string)$this->user['max_streams'],
+                'active_cons'      => '0',
+                'created_at'       => (string)time(),
+                'max_connections'  => '999',
                 'allowed_output_formats' => ['m3u8', 'ts'],
             ],
             'server_info' => [
@@ -82,10 +66,8 @@ class XtreamAPI
         $groups = Database::query(
             "SELECT DISTINCT c.group_title
              FROM channels c
-             JOIN playlists p ON p.id = c.playlist_id
-             WHERE p.user_id = ? AND c.is_active = 1
-             ORDER BY c.group_title",
-            [$this->user['id']]
+             WHERE c.is_active = 1
+             ORDER BY c.group_title"
         )->fetchAll(PDO::FETCH_COLUMN);
 
         $out = [];
@@ -102,16 +84,13 @@ class XtreamAPI
     /** GET /player_api.php?action=get_live_streams[&category_id=X] */
     private function getLiveStreams(array $params): void
     {
-        // Map category_id back to group name
         $categoryFilter = '';
-        $binds = [$this->user['id']];
+        $binds = [];
 
         if (!empty($params['category_id'])) {
             $groups = Database::query(
                 "SELECT DISTINCT group_title FROM channels c
-                 JOIN playlists p ON p.id = c.playlist_id
-                 WHERE p.user_id = ? AND c.is_active = 1 ORDER BY group_title",
-                [$this->user['id']]
+                 WHERE c.is_active = 1 ORDER BY group_title"
             )->fetchAll(PDO::FETCH_COLUMN);
 
             $idx = (int)$params['category_id'] - 1;
@@ -123,23 +102,22 @@ class XtreamAPI
 
         $channels = Database::query(
             "SELECT c.* FROM channels c
-             JOIN playlists p ON p.id = c.playlist_id
-             WHERE p.user_id = ? AND c.is_active = 1{$categoryFilter}
+             WHERE c.is_active = 1{$categoryFilter}
              ORDER BY c.sort_order",
             $binds
         )->fetchAll();
 
         $out = [];
         foreach ($channels as $ch) {
-            $streamUrl = APP_URL . '/xtreamtv/proxy.php?id=' . $ch['id'] . '&t=' . urlencode($this->user['api_token']);
+            $streamUrl = APP_URL . '/xtreamtv/proxy.php?id=' . $ch['id'];
             $out[] = [
                 'num'             => $ch['id'],
                 'name'            => $ch['name'],
                 'stream_type'     => 'live',
                 'stream_id'       => $ch['id'],
-                'stream_icon'     => $ch['logo'] ?? '',
+                'stream_icon'     => $ch['tvg_logo'] ?? '',
                 'epg_channel_id'  => $ch['tvg_id'] ?? '',
-                'added'           => (string)$ch['created_at'],
+                'added'           => (string)($ch['added_at'] ?? time()),
                 'category_id'     => '1',
                 'custom_sid'      => '',
                 'tv_archive'      => 0,
@@ -155,21 +133,13 @@ class XtreamAPI
         echo json_encode([]);
     }
 
-    /** Handle /live/{username}/{password}/{id}.ts and /live/.../id.m3u8 */
-    public static function handleDirectStream(string $username, string $password, int $streamId, string $ext): void
+    /** Handle /live/{id}.ts and /live/{id}.m3u8 (no auth required) */
+    public static function handleDirectStream(int $streamId, string $ext = 'ts'): void
     {
-        $user = Security::authenticateToken($username, $password);
-        if (!$user) {
-            http_response_code(401);
-            echo json_encode(['error' => 'Unauthorized', 'credit' => APP_AUTHOR]);
-            exit;
-        }
-
         $channel = Database::query(
             "SELECT c.* FROM channels c
-             JOIN playlists p ON p.id = c.playlist_id
-             WHERE c.id = ? AND c.is_active = 1 AND p.user_id = ?",
-            [$streamId, $user['id']]
+             WHERE c.id = ? AND c.is_active = 1",
+            [$streamId]
         )->fetch();
 
         if (!$channel) {
@@ -178,12 +148,12 @@ class XtreamAPI
             exit;
         }
 
-        if (!Security::validateStreamUrl($channel['stream_url'])) {
+        if (!(filter_var($channel['stream_url'], FILTER_VALIDATE_URL) || str_starts_with($channel['stream_url'], 'rtmp://') || str_starts_with($channel['stream_url'], 'rtsp://'))) {
             http_response_code(403);
             echo json_encode(['error' => 'Blocked', 'credit' => APP_AUTHOR]);
             exit;
         }
 
-        StreamProxy::pipe($channel['stream_url'], (int)$user['id']);
+        StreamProxy::pipe($channel['stream_url']);
     }
 }

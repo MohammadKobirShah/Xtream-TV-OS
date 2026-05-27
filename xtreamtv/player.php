@@ -12,7 +12,7 @@
  *    - Live EPG overlay (current & next program)
  *    - EPG progress bar
  *    - Channel sidebar with group filter + search
- *    - Keyboard shortcuts (space, f, m, ←→ seek)
+ *    - Keyboard shortcuts (space, f, m, seek)
  *    - PiP (Picture-in-Picture) support
  *    - Auto-reconnect on stream error
  *    - Glassmorphism EPG card under player
@@ -22,16 +22,8 @@
 declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/src/Database.php';
-require_once __DIR__ . '/src/Security.php';
-require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/epg.php';
 
-Auth::requireLogin();
-$user    = Auth::user();
-$userId  = $user['id'];
-$token   = $user['api_token'];
-
-// ── Load requested channel ─────────────────────────────────
 $channelId = (int)($_GET['id'] ?? 0);
 $channel   = null;
 $epgCurrent = null;
@@ -40,9 +32,8 @@ $epgNext    = null;
 if ($channelId) {
     $channel = Database::query(
         "SELECT c.* FROM channels c
-         JOIN playlists p ON p.id = c.playlist_id
-         WHERE c.id = ? AND c.is_active = 1 AND p.user_id = ?",
-        [$channelId, $userId]
+         WHERE c.id = ? AND c.is_active = 1",
+        [$channelId]
     )->fetch();
 
     if ($channel && !empty($channel['tvg_id'])) {
@@ -51,41 +42,35 @@ if ($channelId) {
     }
 }
 
-// ── Channel groups for sidebar filter ─────────────────────
 $groups = Database::query(
     "SELECT DISTINCT c.group_title
-     FROM channels c JOIN playlists p ON p.id = c.playlist_id
-     WHERE p.user_id = ? AND c.is_active = 1 AND c.stream_type = 'live'
-     ORDER BY c.group_title",
-    [$userId]
+     FROM channels c
+     WHERE c.is_active = 1 AND c.stream_type = 'live'
+     ORDER BY c.group_title"
 )->fetchAll(\PDO::FETCH_COLUMN);
 
 $selectedGroup = trim($_GET['group'] ?? '');
 $searchQ       = trim($_GET['q']     ?? '');
 
-// ── Channels list for sidebar ──────────────────────────────
-$chWhere = ["p.user_id = ?", "c.is_active = 1", "c.stream_type = 'live'"];
-$chParams = [$userId];
+$chWhere = ["c.is_active = 1", "c.stream_type = 'live'"];
+$chParams = [];
 if ($selectedGroup) { $chWhere[] = "c.group_title = ?"; $chParams[] = $selectedGroup; }
 if ($searchQ)       { $chWhere[] = "c.name LIKE ?";     $chParams[] = "%{$searchQ}%"; }
 
 $channels = Database::query(
-    "SELECT c.id, c.name, c.tvg_logo, c.tvg_id, c.group_title
-     FROM channels c JOIN playlists p ON p.id = c.playlist_id
+    "SELECT c.id, c.name, c.tvg_logo, c.tvg_id, c.group_title, c.stream_url
+     FROM channels c
      WHERE " . implode(' AND ', $chWhere) . "
      ORDER BY c.group_title, c.sort_order, c.name LIMIT 300",
     $chParams
 )->fetchAll();
 
-// ── Build proxy stream URL ──────────────────────────────────
 $streamUrl = $channel
-    ? APP_URL . '/xtreamtv/proxy.php?url=' . base64_encode($channel['stream_url']) . '&t=' . urlencode($token)
+    ? APP_URL . '/xtreamtv/proxy.php?url=' . base64_encode($channel['stream_url'])
     : '';
 
-// ── EPG progress ───────────────────────────────────────────
 $epgProgress = $epgCurrent ? EPGEngine::programProgress($epgCurrent) : 0;
 
-// ── Helper: XSS-safe output ────────────────────────────────
 $e = fn($v) => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 ?>
 <!DOCTYPE html>
@@ -95,12 +80,10 @@ $e = fn($v) => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= $channel ? $e($channel['name']) . ' — ' : '' ?>XtreamTV Player | Kobir Shah</title>
 <meta name="author" content="Kobir Shah">
-
-<!-- ── Video.js (local fallback via inline) ── -->
 <style>
 /* ══════════════════════════════════════════════════════════
    XTREAMTV CINEMATIC PLAYER — by Kobir Shah
-══════════════════════════════════════════════════════════ */
+╔═════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --bg:         #020205;
@@ -121,7 +104,6 @@ $e = fn($v) => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'
 }
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
 
-/* ─── Grid Layout ─── */
 .app {
   display: grid;
   grid-template-columns: 1fr var(--sidebar-w);
@@ -137,7 +119,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .sidebar  { grid-area: sidebar; }
 footer    { grid-area: footer; }
 
-/* ─── Top Bar ─── */
 .topbar {
   height: 48px; display: flex; align-items: center; justify-content: space-between;
   padding: 0 20px; background: rgba(2,2,5,0.98); border-bottom: 1px solid var(--border);
@@ -152,23 +133,14 @@ footer    { grid-area: footer; }
 .btn-sm:hover { background: rgba(0,180,255,0.08); color: var(--text); border-color: rgba(0,180,255,0.2); }
 .btn-primary-sm { background: linear-gradient(135deg, var(--blue), #0070aa); color: #fff !important; border-color: rgba(0,180,255,0.3) !important; }
 
-/* ─── Theater ─── */
-.theater {
-  display: flex; flex-direction: column;
-  background: #000;
-}
+.theater { display: flex; flex-direction: column; background: #000; }
 
-/* ─── Video Container ─── */
 .video-wrap {
   flex: 1; position: relative; background: #000; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
 }
-video {
-  width: 100%; height: 100%; object-fit: contain;
-  background: #000;
-}
+video { width: 100%; height: 100%; object-fit: contain; background: #000; }
 
-/* ─── Custom Video Controls Overlay ─── */
 .controls-overlay {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   justify-content: flex-end; pointer-events: none;
@@ -193,18 +165,15 @@ video {
 .seek-bar { -webkit-appearance: none; appearance: none; width: 100%; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.2); cursor: pointer; }
 .seek-bar::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--blue); }
 
-/* ─── Buffering Spinner ─── */
 .buffering {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
   width: 50px; height: 50px; border: 3px solid rgba(0,180,255,0.2);
   border-top-color: var(--blue); border-radius: 50%;
-  animation: spin .8s linear infinite; display: none;
-  pointer-events: none;
+  animation: spin .8s linear infinite; display: none; pointer-events: none;
 }
 @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
 .video-wrap.loading .buffering { display: block; }
 
-/* ─── No Channel State ─── */
 .no-channel {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 16px;
@@ -214,7 +183,6 @@ video {
 .no-channel-title { font-size: 1.2rem; font-weight: 700; color: var(--dim); }
 .no-channel-sub { font-size: 0.82rem; color: var(--muted); }
 
-/* ─── EPG Info Panel ─── */
 .epg-panel {
   background: rgba(5,5,14,0.95); border-top: 1px solid var(--border);
   padding: 14px 20px; flex-shrink: 0; min-height: 80px;
@@ -237,7 +205,6 @@ video {
 .epg-progress-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--blue), var(--purple)); transition: width .5s ease; }
 .epg-empty { color: var(--muted); font-size: 0.8rem; padding: 8px 0; }
 
-/* ─── SIDEBAR ─── */
 .sidebar {
   display: flex; flex-direction: column;
   background: var(--bg-panel); border-left: 1px solid var(--border);
@@ -285,7 +252,6 @@ video {
 .ch-grp  { font-size: 0.68rem; color: var(--purple); margin-top: 1px; }
 .ch-now  { font-size: 0.65rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 
-/* ─── Footer ─── */
 footer {
   padding: 10px 20px; border-top: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
@@ -298,7 +264,6 @@ footer {
 }
 .kbd { padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); font-family: monospace; font-size: 0.65rem; color: var(--dim); }
 
-/* ─── Error Banner ─── */
 .error-banner {
   display: none; position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
   background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3);
@@ -306,7 +271,6 @@ footer {
   backdrop-filter: blur(12px); z-index: 20; pointer-events: none; white-space: nowrap;
 }
 
-/* ─── PiP indicator ─── */
 .pip-badge {
   position: absolute; top: 12px; right: 12px;
   background: rgba(0,0,0,0.7); padding: 4px 10px; border-radius: 20px;
@@ -314,7 +278,6 @@ footer {
   display: none;
 }
 
-/* ─── Responsive ─── */
 @media (max-width: 768px) {
   .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "theater" "footer"; }
   .sidebar { display: none; }
@@ -324,7 +287,6 @@ footer {
 <body>
 <div class="app">
 
-  <!-- ══ TOP BAR ══ -->
   <header class="topbar">
     <div style="display:flex;align-items:center;gap:16px;">
       <div class="tb-logo">⚡ XtreamTV</div>
@@ -343,34 +305,28 @@ footer {
         <kbd class="kbd">M</kbd> Mute
       </span>
       <a href="index.php" class="btn-sm">⚡ Dashboard</a>
-      <a href="index.php?action=pip" id="btnPiP" class="btn-sm" title="Picture-in-Picture">⧉ PiP</a>
-      <a href="logout.php" class="btn-sm">✕ Logout</a>
+      <a href="index.php?action=pip" id="btnPiP" class="btn-sm" title="Picture-in-Picture">PiP</a>
     </div>
   </header>
 
-  <!-- ══ THEATER ══ -->
   <section class="theater">
 
-    <!-- Video container -->
     <div class="video-wrap <?= !$channel ? '' : 'loading' ?>" id="videoWrap">
 
-      <!-- No channel selected state -->
       <?php if (!$channel): ?>
       <div class="no-channel">
         <div class="no-channel-icon">📺</div>
         <div class="no-channel-title">Select a channel to start watching</div>
-        <div class="no-channel-sub">Browse the channel list on the right →</div>
+        <div class="no-channel-sub">Browse the channel list on the right</div>
       </div>
       <?php endif; ?>
 
-      <!-- Video element -->
       <video
         id="mainVideo"
         playsinline
         <?= !$channel ? 'style="display:none"' : '' ?>
       ></video>
 
-      <!-- Controls overlay -->
       <?php if ($channel): ?>
       <div class="controls-overlay" id="controlsOverlay">
         <div class="seek-bar-wrap">
@@ -383,23 +339,17 @@ footer {
           <div class="ctrl-spacer"></div>
           <button class="ctrl-btn" id="btnMute" title="Mute (M)">🔊</button>
           <input type="range" class="vol-slider" id="volSlider" min="0" max="1" step="0.05" value="1">
-          <button class="ctrl-btn" id="btnPip" title="Picture-in-Picture">⧉</button>
-          <button class="ctrl-btn" id="btnFullscreen" title="Fullscreen (F)">⛶</button>
+          <button class="ctrl-btn" id="btnPip" title="Picture-in-Picture">PiP</button>
+          <button class="ctrl-btn" id="btnFullscreen" title="Fullscreen (F)">Fullscreen</button>
         </div>
       </div>
       <?php endif; ?>
 
-      <!-- Buffering indicator -->
       <div class="buffering" id="buffering"></div>
-
-      <!-- Error banner -->
-      <div class="error-banner" id="errorBanner">⚠️ Stream error — retrying...</div>
-
-      <!-- PiP badge -->
-      <div class="pip-badge" id="pipBadge">⧉ Playing in PiP</div>
+      <div class="error-banner" id="errorBanner">Stream error — retrying...</div>
+      <div class="pip-badge" id="pipBadge">Playing in PiP</div>
     </div>
 
-    <!-- ══ EPG INFO PANEL ══ -->
     <div class="epg-panel" id="epgPanel">
       <?php if ($channel): ?>
         <?php if ($epgCurrent): ?>
@@ -440,7 +390,7 @@ footer {
           <?php endif; ?>
         </div>
         <?php else: ?>
-        <div class="epg-empty">📅 No EPG data available for this channel.</div>
+        <div class="epg-empty">No EPG data available for this channel.</div>
         <?php endif; ?>
       <?php else: ?>
         <div class="epg-empty">Select a channel to see program information.</div>
@@ -449,18 +399,15 @@ footer {
 
   </section>
 
-  <!-- ══ SIDEBAR ══ -->
   <aside class="sidebar">
     <div class="sidebar-head">
       <div class="sidebar-title">📺 Channels</div>
 
-      <!-- Search -->
       <form method="GET" action="player.php">
         <?php if ($channelId): ?><input type="hidden" name="id" value="<?= $channelId ?>"><?php endif; ?>
-        <input type="text" class="search-box" name="q" placeholder="🔍 Search channels..." value="<?= $e($searchQ) ?>" id="channelSearch">
+        <input type="text" class="search-box" name="q" placeholder="Search channels..." value="<?= $e($searchQ) ?>" id="channelSearch">
       </form>
 
-      <!-- Group pills -->
       <div class="group-pills">
         <a href="player.php?<?= $channelId ? 'id='.$channelId.'&' : '' ?>q=<?= urlencode($searchQ) ?>"
            class="pill <?= !$selectedGroup ? 'active' : '' ?>">All</a>
@@ -471,7 +418,6 @@ footer {
       </div>
     </div>
 
-    <!-- Channel list -->
     <div class="ch-list" id="chList">
       <?php if (empty($channels)): ?>
       <div style="padding:32px 16px;text-align:center;color:var(--muted);font-size:0.82rem">
@@ -486,9 +432,7 @@ footer {
       ?>
       <a href="<?= $e($href) ?>" class="ch-item <?= $isActive ? 'active' : '' ?>"
          data-channel-id="<?= $ch['id'] ?>"
-         data-stream-url="<?= $e(APP_URL . '/xtreamtv/proxy.php?url=' . base64_encode(
-             Database::query("SELECT stream_url FROM channels WHERE id=?", [$ch['id']])->fetchColumn() ?? ''
-         ) . '&t=' . urlencode($token)) ?>"
+         data-stream-url="<?= $e(APP_URL . '/xtreamtv/proxy.php?url=' . base64_encode($ch['stream_url'])) ?>"
          data-tvg-id="<?= $e($ch['tvg_id'] ?? '') ?>"
          data-name="<?= $e($ch['name']) ?>">
 
@@ -502,7 +446,7 @@ footer {
         <div class="ch-info">
           <div class="ch-name"><?= $e($ch['name']) ?></div>
           <div class="ch-grp"><?= $e($ch['group_title']) ?></div>
-          <div class="ch-now" id="epg-<?= $ch['id'] ?>">Loading EPG…</div>
+          <div class="ch-now" id="epg-<?= $ch['id'] ?>">Loading EPG...</div>
         </div>
       </a>
       <?php endforeach; ?>
@@ -510,25 +454,21 @@ footer {
     </div>
   </aside>
 
-  <!-- ══ FOOTER ══ -->
   <footer>
     <span>© <?= date('Y') ?> <span class="credit">Kobir Shah</span> — XtreamTV v<?= APP_VERSION ?> | IPTV OS</span>
-    <span style="color:var(--muted)"><?= DEVELOPER_CREDIT ?> &nbsp;|&nbsp; Logged in as <strong style="color:var(--blue)"><?= $e($user['username']) ?></strong></span>
+    <span style="color:var(--muted)"><?= DEVELOPER_CREDIT ?></span>
     <span style="font-size:0.65rem;color:var(--muted)">
       <?= count($channels) ?> channels loaded &nbsp;·&nbsp;
       <span class="credit">Designed &amp; Developed by Kobir Shah</span>
     </span>
   </footer>
 
-</div><!-- /app -->
+</div>
 
-<!-- ════ HLS.js CDN + Player Script ════ -->
 <script>
-/* ── XtreamTV Cinematic Player Engine ── Kobir Shah ── */
 console.log('%c⚡ XtreamTV Cinematic Player v<?= APP_VERSION ?>', 'color:#00b4ff;font-size:13px;font-weight:bold;');
 console.log('%c✦ Developed by Kobir Shah ✦', 'color:#a855f7;font-size:11px;');
 
-// ── State ───────────────────────────────────────────────────
 const state = {
   currentChannelId: <?= $channelId ?: 'null' ?>,
   currentStreamUrl: <?= $streamUrl ? "'" . addslashes($streamUrl) . "'" : 'null' ?>,
@@ -553,22 +493,18 @@ const seekBar     = document.getElementById('seekBar');
 const timeDisplay = document.getElementById('timeDisplay');
 const pipBadge    = document.getElementById('pipBadge');
 
-// ── Dynamically load HLS.js ─────────────────────────────────
 function loadHLSjs(callback) {
   if (window.Hls) { callback(); return; }
   const script = document.createElement('script');
-  // Try CDN, fallback gracefully
   script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js';
   script.onload  = callback;
   script.onerror = () => { console.warn('HLS.js CDN failed, using native playback'); callback(); };
   document.head.appendChild(script);
 }
 
-// ── Initialize player with a stream URL ─────────────────────
 function initPlayer(url) {
   if (!url || !video) return;
 
-  // Clean up previous instance
   if (state.hls) { state.hls.destroy(); state.hls = null; }
   clearTimeout(state.reconnectTimer);
 
@@ -578,7 +514,6 @@ function initPlayer(url) {
 
   loadHLSjs(() => {
     if (window.Hls && Hls.isSupported()) {
-      // HLS.js for cross-browser support
       state.hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
@@ -601,12 +536,10 @@ function initPlayer(url) {
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native HLS (Safari / iOS)
       video.src = url;
       video.play().catch(() => {});
       videoWrap.classList.remove('loading');
     } else {
-      // Fallback: direct source
       video.src = url;
       video.play().catch(() => {});
       videoWrap.classList.remove('loading');
@@ -614,7 +547,6 @@ function initPlayer(url) {
   });
 }
 
-// ── Auto-reconnect on stream error ──────────────────────────
 function autoReconnect(url) {
   if (state.reconnectAttempts >= state.maxReconnectAttempts) {
     showError('Stream unavailable after ' + state.maxReconnectAttempts + ' attempts.');
@@ -622,30 +554,25 @@ function autoReconnect(url) {
   }
   state.reconnectAttempts++;
   const delay = Math.min(5000 * state.reconnectAttempts, 30000);
-  console.log(`[XtreamTV] Reconnecting in ${delay/1000}s (attempt ${state.reconnectAttempts}) — Kobir Shah`);
+  console.log('[XtreamTV] Reconnecting in ' + (delay/1000) + 's (attempt ' + state.reconnectAttempts + ')');
   state.reconnectTimer = setTimeout(() => initPlayer(url), delay);
 }
 
-// ── Show/hide error banner ───────────────────────────────────
 function showError(msg) {
-  errorBanner.textContent = '⚠️ ' + (msg || 'Stream error — retrying...');
+  errorBanner.textContent = (msg || 'Stream error — retrying...');
   errorBanner.style.display = 'block';
   setTimeout(() => { errorBanner.style.display = 'none'; }, 4000);
 }
 
-// ── Switch channel without page reload (SPA-style) ──────────
 function switchChannel(channelId, streamUrl, tvgId, name) {
-  // Update URL without reload
   const newUrl = new URL(window.location.href);
   newUrl.searchParams.set('id', channelId);
   history.pushState({channelId, streamUrl, tvgId, name}, name, newUrl.toString());
 
-  // Update active state in sidebar
   document.querySelectorAll('.ch-item').forEach(el => {
     el.classList.toggle('active', parseInt(el.dataset.channelId) === channelId);
   });
 
-  // Update top bar channel name
   const tbChannel = document.querySelector('.tb-channel span');
   if (tbChannel) tbChannel.textContent = name;
 
@@ -653,14 +580,11 @@ function switchChannel(channelId, streamUrl, tvgId, name) {
   state.currentStreamUrl = streamUrl;
   state.epgTvgId = tvgId;
 
-  // Initialize new stream
   initPlayer(streamUrl);
 
-  // Fetch EPG for new channel
   if (tvgId) fetchEPG(tvgId, true);
 }
 
-// ── Channel list click handler ──────────────────────────────
 document.querySelectorAll('.ch-item').forEach(el => {
   el.addEventListener('click', e => {
     e.preventDefault();
@@ -672,9 +596,7 @@ document.querySelectorAll('.ch-item').forEach(el => {
   });
 });
 
-// ── Video controls ───────────────────────────────────────────
 if (video) {
-  // Play/pause toggle
   function togglePlay() {
     if (video.paused) { video.play(); btnPlay.textContent = '⏸'; videoWrap.classList.remove('paused'); }
     else              { video.pause(); btnPlay.textContent = '▶'; videoWrap.classList.add('paused'); }
@@ -682,7 +604,6 @@ if (video) {
   btnPlay?.addEventListener('click', togglePlay);
   video.addEventListener('click', togglePlay);
 
-  // Stop
   btnStop?.addEventListener('click', () => {
     if (state.hls) state.hls.destroy();
     video.src = '';
@@ -690,27 +611,23 @@ if (video) {
     videoWrap.classList.remove('loading');
   });
 
-  // Mute toggle
   btnMute?.addEventListener('click', () => {
     video.muted = !video.muted;
     btnMute.textContent = video.muted ? '🔇' : '🔊';
   });
 
-  // Volume
   volSlider?.addEventListener('input', () => {
     video.volume = parseFloat(volSlider.value);
     video.muted = (video.volume === 0);
     btnMute.textContent = video.muted ? '🔇' : '🔊';
   });
 
-  // Seek (for VOD)
   seekBar?.addEventListener('input', () => {
     if (video.duration && isFinite(video.duration)) {
       video.currentTime = (parseFloat(seekBar.value) / 100) * video.duration;
     }
   });
 
-  // Time display
   video.addEventListener('timeupdate', () => {
     if (video.duration && isFinite(video.duration)) {
       seekBar.value = (video.currentTime / video.duration) * 100;
@@ -718,16 +635,14 @@ if (video) {
       const dur = formatTime(video.duration);
       timeDisplay.textContent = cur + ' / ' + dur;
     } else {
-      timeDisplay.textContent = 'LIVE 🔴';
+      timeDisplay.textContent = 'LIVE';
     }
   });
 
-  // Buffering states
   video.addEventListener('waiting',  () => videoWrap.classList.add('loading'));
   video.addEventListener('playing',  () => { videoWrap.classList.remove('loading'); videoWrap.classList.remove('paused'); });
   video.addEventListener('pause',    () => videoWrap.classList.add('paused'));
 
-  // Fullscreen
   btnFullscreen?.addEventListener('click', toggleFullscreen);
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -739,7 +654,6 @@ if (video) {
     }
   }
 
-  // Picture-in-Picture
   btnPip?.addEventListener('click', async () => {
     if (!video.src && !state.currentStreamUrl) return;
     try {
@@ -755,7 +669,6 @@ if (video) {
   video.addEventListener('leavepictureinpicture', () => { pipBadge.style.display = 'none'; });
 }
 
-// ── Keyboard shortcuts ───────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
   switch (e.code) {
@@ -769,14 +682,12 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ── EPG Live Fetch ───────────────────────────────────────────
 function fetchEPG(tvgId, updatePanel = false) {
   if (!tvgId) return;
-  fetch(`epg_api.php?tvg_id=${encodeURIComponent(tvgId)}&t=<?= urlencode($token) ?>`)
+  fetch('epg_api.php?tvg_id=' + encodeURIComponent(tvgId))
     .then(r => r.json())
     .then(data => {
       if (updatePanel) updateEPGPanel(data);
-      // Update sidebar EPG for this channel
       updateSidebarEPG(state.currentChannelId, data.current?.title);
     })
     .catch(() => {});
@@ -786,7 +697,7 @@ function updateEPGPanel(data) {
   const panel = document.getElementById('epgPanel');
   if (!panel || !data) return;
   if (!data.current) {
-    panel.innerHTML = '<div class="epg-empty">📅 No EPG data available for this channel.</div>';
+    panel.innerHTML = '<div class="epg-empty">No EPG data available for this channel.</div>';
     return;
   }
   const c = data.current, n = data.next;
@@ -796,10 +707,10 @@ function updateEPGPanel(data) {
       <div class="epg-content">
         <div class="epg-title">${esc(c.title)}</div>
         <div class="epg-time">${c.start} – ${c.stop} · ${c.duration}</div>
-        ${c.description ? `<div class="epg-desc">${esc(c.description)}</div>` : ''}
+        ${c.description ? '<div class="epg-desc">' + esc(c.description) + '</div>' : ''}
         <div class="epg-progress-wrap">
           <div class="epg-progress-bar">
-            <div class="epg-progress-fill" style="width:${c.progress}%"></div>
+            <div class="epg-progress-fill" style="width:' + c.progress + '%"></div>
           </div>
         </div>
       </div>
@@ -818,13 +729,12 @@ function updateSidebarEPG(channelId, title) {
   if (el && title) el.textContent = title;
 }
 
-// ── Load EPG for all visible channels in sidebar (batch) ────
 function loadSidebarEPGs() {
   const items = document.querySelectorAll('.ch-item[data-tvg-id]');
   const tvgIds = [...new Set([...items].map(el => el.dataset.tvgId).filter(Boolean))].slice(0, 30);
   if (!tvgIds.length) return;
 
-  fetch(`epg_api.php?action=batch&tvg_ids=${tvgIds.join(',')}&t=<?= urlencode($token) ?>`)
+  fetch('epg_api.php?action=batch&tvg_ids=' + tvgIds.join(','))
     .then(r => r.json())
     .then(data => {
       if (!data.data) return;
@@ -838,21 +748,19 @@ function loadSidebarEPGs() {
       });
     })
     .catch(() => {
-      // EPG not available — just clear the loading text
       document.querySelectorAll('.ch-now').forEach(el => {
-        if (el.textContent === 'Loading EPG…') el.textContent = '';
+        if (el.textContent === 'Loading EPG...') el.textContent = '';
       });
     });
 }
 
-// ── Helpers ──────────────────────────────────────────────────
 function formatTime(sec) {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = Math.floor(sec % 60);
   return h > 0
-    ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-    : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    ? h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0')
+    : String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
 function esc(str) {
   const div = document.createElement('div');
@@ -860,7 +768,6 @@ function esc(str) {
   return div.innerHTML;
 }
 
-// ── Search: live filter sidebar without page load ────────────
 document.getElementById('channelSearch')?.addEventListener('input', function() {
   const q = this.value.toLowerCase();
   document.querySelectorAll('.ch-item').forEach(el => {
@@ -869,26 +776,22 @@ document.getElementById('channelSearch')?.addEventListener('input', function() {
   });
 });
 
-// ── Init ─────────────────────────────────────────────────────
 if (state.currentStreamUrl && video) {
   initPlayer(state.currentStreamUrl);
 }
 
-// Load EPG data for all sidebar channels
 setTimeout(loadSidebarEPGs, 1000);
 
-// Refresh EPG for current channel every 2 minutes
 setInterval(() => {
   if (state.epgTvgId) fetchEPG(state.epgTvgId, true);
 }, 120000);
 
-// Auto-refresh EPG progress bar every 30 seconds
 setInterval(() => {
   const fill = document.getElementById('epgProgressFill');
   if (fill && state.epgTvgId) fetchEPG(state.epgTvgId, false);
 }, 30000);
 
-console.log('%c✅ XtreamTV Player initialized — Kobir Shah', 'color:#10b981;font-size:10px;');
+console.log('%cXtreamTV Player initialized', 'color:#10b981;font-size:10px;');
 </script>
 </body>
 </html>
