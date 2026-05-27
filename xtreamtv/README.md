@@ -163,6 +163,40 @@ access_log      — All actions logged for audit
 
 ---
 
+## 📋 Changelog
+
+### v2.0.1 (2026-05-27)
+- **Critical fix**: `Auth::check()` checked nonexistent `auth_role` session key (always returned false)
+- **Critical fix**: `Security::login()` derived `role` from `$user['role']` column which doesn't exist in DB
+- **Critical fix**: `Security::login()` never set Auth-class session keys → infinite redirect loop on Auth-guarded pages
+- **Fix**: `UserManager::getAll()` queried `role` column → changed to `is_admin` with computed `role` field
+- **Fix**: `UserManager::create()` inserted into `role` column → changed to `is_admin`
+- **Fix**: `UserManager::update()` mapped `role` param → `is_admin` column (DB schema uses `is_admin`)
+- **Fix**: `playlists.php` sorted by `p.created_at` → corrected to `p.added_at` (DB column)
+- **Fix**: `install.php` channels table missing `ffmpeg_mode` column → added
+- **Fix**: `index.php` stats queries used SQL string interpolation → converted to prepared statements
+- **Fix**: `View.php` avatar initial `$username[0]` undefined offset when username empty
+- **Fix**: `api.php` parse error — `echo` used inside `match` expression (invalid PHP syntax)
+- **Security**: SQL injection vector removed from 5 dashboard queries
+
+### v2.0.0
+- `BugFix: Added DEVELOPER_CREDIT constant (was missing)`
+- `BugFix: Version bumped to 2.0.0 (was mismatched at 1.0.0)`
+- `BugFix: epg_api.php — self::formatProgram() call changed to self::class resolution`
+- `BugFix: epg_api.php — array_map('formatProgram', ...) moved after function definition`
+- `BugFix: proxy.php — added require_once for Security class`
+- `BugFix: .htaccess — removed redundant SQLite lockdown rules`
+- Xtream Codes API emulation (`player_api.php`)
+- Cinematic player UI (`player.php`)
+- EPG overlay with current/next program display
+- Settings panel with FFmpeg mode toggles
+- 64MB SQLite cache, WAL mode, batch inserts
+
+### v1.0.0
+- Initial release with core proxy, M3U parser, playlist manager, channel browser, user management, dark glassmorphism UI
+
+---
+
 ## 📄 License & Credit
 
 **Developer:** Kobir Shah  
