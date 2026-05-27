@@ -93,12 +93,26 @@ class Database
         ");
 
         try {
-            $cols = array_column(
+            $chCols = array_column(
                 $pdo->query("PRAGMA table_info(channels)")->fetchAll(),
                 'name'
             );
-            if (!in_array('ffmpeg_mode', $cols, true)) {
+            if (!in_array('ffmpeg_mode', $chCols, true)) {
                 $pdo->exec("ALTER TABLE channels ADD COLUMN ffmpeg_mode TEXT DEFAULT 'inherit'");
+            }
+            $plCols = array_column(
+                $pdo->query("PRAGMA table_info(playlists)")->fetchAll(),
+                'name'
+            );
+            foreach ([
+                'source_type'   => "TEXT NOT NULL DEFAULT 'm3u_url'",
+                'source_config' => 'TEXT',
+                'url'           => 'TEXT',
+                'epg_url'       => 'TEXT',
+            ] as $col => $def) {
+                if (!in_array($col, $plCols, true)) {
+                    $pdo->exec("ALTER TABLE playlists ADD COLUMN {$col} {$def}");
+                }
             }
         } catch (\Throwable $e) {}
 
