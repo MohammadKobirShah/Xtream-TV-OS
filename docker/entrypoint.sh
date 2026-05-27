@@ -3,18 +3,37 @@
 #  XtreamTV IPTV OS — Docker Entrypoint Script
 #  Developer: Kobir Shah
 #  Runs inside the container on every start
+#  Compatible with: Docker Compose (localhost) & Railway
 # ============================================================
 
 set -e
 
+# ── Detect Platform ──────────────────────────────────────────
+# Railway sets PORT dynamically; use it, otherwise default to 80
+LISTEN_PORT="${PORT:-80}"
+if [ "$PORT" != "" ]; then
+    PLATFORM="Railway"
+else
+    PLATFORM="Docker"
+fi
+
+# ── Print platform banner ────────────────────────────────────
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
 echo "║   ⚡ XtreamTV IPTV OS — Starting Up                 ║"
 echo "║   Developer : Kobir Shah                            ║"
 echo "║   Version   : 2.0.1                                 ║"
-echo "║   Access    : http://localhost:8080/xtreamtv/        ║"
-echo "╚══════════════════════════════════════════════════════╝"
-echo ""
+printf "║   Platform  : %-37s║\n" "$PLATFORM"
+if [ "$PORT" != "" ]; then
+    printf "║   Port      : %-37s║\n" "$PORT"
+    echo "╚══════════════════════════════════════════════════════╝"
+    echo ""
+    echo "  🌐 Railway detected — binding Apache to PORT=$PORT"
+    echo ""
+else
+    echo "╚══════════════════════════════════════════════════════╝"
+    echo ""
+fi
 
 # ── Create required directories ─────────────────────────────
 STORAGE="/var/www/html/xtreamtv/storage"
@@ -46,10 +65,25 @@ if [ ! -f "$DB" ]; then
 fi
 
 echo ""
-echo "  🔐 Default login: admin / admin123"
-echo "  🌐 Panel URL:     http://localhost:8080/xtreamtv/"
-echo "  ✦  Powered by Kobir Shah"
-echo ""
+if [ "$PORT" != "" ]; then
+    echo "  🔐 Default login: admin / admin123"
+    echo "  🌐 Panel URL:     http://0.0.0.0:$PORT/xtreamtv/"
+    echo "  ✦  Powered by Kobir Shah"
+    echo ""
+else
+    echo "  🔐 Default login: admin / admin123"
+    echo "  🌐 Panel URL:     http://localhost:8080/xtreamtv/"
+    echo "  ✦  Powered by Kobir Shah"
+    echo ""
+fi
+
+# ── Bind Apache to the correct port ─────────────────────────
+# Railway sets $PORT; update Apache configs to match
+if [ "$PORT" != "" ] && [ "$PORT" != "80" ]; then
+    sed -i "s/^Listen 80$/Listen $PORT/" /etc/apache2/ports.conf
+    sed -i "s/<VirtualHost \*:80>/<VirtualHost *:$PORT>/" /etc/apache2/sites-enabled/000-default.conf
+    echo "  [✓] Apache configured to listen on port $PORT"
+fi
 
 # ── Fix MPM conflict before starting Apache ────────────────
 # php:8.2-apache requires mpm_prefork (mod_php is incompatible with event/worker)

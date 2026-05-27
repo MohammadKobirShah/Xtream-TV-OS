@@ -2,16 +2,22 @@ version: '3.8'
 
 # ============================================================
 #  XtreamTV IPTV OS — Docker Compose
+#  Compatible with: Docker Compose (localhost) & Railway
 # ============================================================
 #  Developer   : Kobir Shah
 #  Local URL   : http://localhost:8080
 #  Public URL  : via Cloudflare Tunnel (auto HTTPS)
 #
 #  Commands:
-#    docker compose up -d --build   ← first run / after code change
-#    docker compose up -d           ← normal start
-#    docker compose down            ← stop all
-#    docker compose logs -f         ← live logs
+#    docker compose up -d --build     ← first run / after code change
+#    docker compose up -d             ← normal start
+#    docker compose down              ← stop all
+#    docker compose logs -f           ← live logs
+#
+#  Railway: Each service deploys independently.
+#  Set PORT env via Railway dashboard or nixpacks.toml.
+#  Cloudflare Tunnel is optional and only needed for
+#  custom domains (Railway provides its own *.railway.app URL).
 # ============================================================
 
 services:

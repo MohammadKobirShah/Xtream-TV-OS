@@ -1,10 +1,12 @@
 # ============================================================
 #  XtreamTV IPTV OS — Production Dockerfile
+#  Compatible with: Docker Compose (localhost) & Railway
 # ============================================================
 #  Developer   : Kobir Shah
 #  Base Image  : php:8.2-apache (Debian Bookworm slim)
 #  Build       : docker build -t xtreamtv .
 #  Run         : docker compose up -d --build
+#  Railway     : PORT env var sets Apache listen port
 # ============================================================
 
 FROM php:8.2-apache
