@@ -51,5 +51,19 @@ echo "  🌐 Panel URL:     http://localhost:8080/xtreamtv/"
 echo "  ✦  Powered by Kobir Shah"
 echo ""
 
+# ── Fix MPM conflict before starting Apache ────────────────
+# php:8.2-apache requires mpm_prefork (mod_php is incompatible with event/worker)
+for mpm in mpm_event mpm_worker; do
+    if [ -f "/etc/apache2/mods-enabled/${mpm}.load" ]; then
+        a2dismod -f "$mpm" 2>/dev/null || true
+        echo "  [✓] Disabled conflicting MPM: $mpm"
+    fi
+done
+# Ensure mpm_prefork is enabled
+if [ ! -f "/etc/apache2/mods-enabled/mpm_prefork.load" ]; then
+    a2enmod mpm_prefork 2>/dev/null || true
+    echo "  [✓] Enabled mpm_prefork"
+fi
+
 # ── Start Apache ─────────────────────────────────────────────
 exec apache2-foreground

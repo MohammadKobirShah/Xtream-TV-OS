@@ -51,9 +51,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zip \
         opcache \
     # ── Apache modules ──────────────────────────────────────
-    # Disable conflicting MPMs before enabling modules
-    # (php:8.2-apache ships with mpm_prefork — ensure no other MPM is active)
-    && a2dismod -f mpm_event mpm_worker 2>/dev/null; \
+    # Explicitly enable mpm_prefork (required for mod_php) and disable
+    # event/worker which conflict. Debian Bookworm's php:8.2-apache
+    # may ship with multiple MPMs enabled by default in some tags.
+    && a2dismod -f mpm_event mpm_worker 2>/dev/null || true; \
+    a2enmod mpm_prefork 2>/dev/null || true; \
     a2enmod \
         rewrite \
         headers \
