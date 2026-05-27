@@ -105,17 +105,36 @@ fi
 # ── Railway: start Cloudflare Quick Tunnel ──────────────────
 if [ "$PORT" != "" ] && command -v cloudflared &>/dev/null; then
     CLOUDLOG="/tmp/cloudflared.log"
+    TUNNEL_FILE="/tmp/tunnel-url.txt"
+
     cloudflared tunnel --url "http://localhost:$PORT" > "$CLOUDLOG" 2>&1 &
     CLOUDFLARED_PID=$!
+    echo "$CLOUDFLARED_PID" > /tmp/cloudflared.pid
 
-    # Wait up to 30s for the tunnel URL
-    for i in $(seq 1 30); do
-        TUNNEL_URL=$(grep -oE 'https?://[a-z0-9-]+\.trycloudflare\.com' "$CLOUDLOG" 2>/dev/null | head -1) || true
-        if [ -n "$TUNNEL_URL" ]; then
+    # Background monitor: watches log and writes tunnel URL to file
+    (
+        for i in $(seq 1 120); do
+            URL=$(grep -oE 'https?://[a-z0-9-]+\.trycloudflare\.com' "$CLOUDLOG" 2>/dev/null | head -1) || true
+            if [ -n "$URL" ]; then
+                echo "$URL" > "$TUNNEL_FILE"
+                chmod 644 "$TUNNEL_FILE"
+                break
+            fi
+            if ! kill -0 "$CLOUDFLARED_PID" 2>/dev/null; then
+                break
+            fi
+            sleep 2
+        done
+    ) &
+
+    # Show tunnel URL in startup logs (poll up to 30s)
+    for i in $(seq 1 15); do
+        URL=$(grep -oE 'https?://[a-z0-9-]+\.trycloudflare\.com' "$CLOUDLOG" 2>/dev/null | head -1) || true
+        if [ -n "$URL" ]; then
             echo ""
             echo "╔══════════════════════════════════════════════════════╗"
             echo "║   🌐 Cloudflare Quick Tunnel Active                 ║"
-            printf "║   %-43s║\n" "$TUNNEL_URL"
+            printf "║   %-43s║\n" "$URL"
             echo "║                                                   ║"
             echo "║   Use this URL for playlist & stream access        ║"
             echo "╚══════════════════════════════════════════════════════╝"
@@ -123,14 +142,14 @@ if [ "$PORT" != "" ] && command -v cloudflared &>/dev/null; then
             break
         fi
         if ! kill -0 "$CLOUDFLARED_PID" 2>/dev/null; then
-            echo "  [!] cloudflared exited early — check $CLOUDLOG"
+            echo "  [!] cloudflared exited — check $CLOUDLOG"
             break
         fi
-        sleep 1
+        sleep 2
     done
 
-    if [ -z "$TUNNEL_URL" ]; then
-        echo "  [!] Cloudflare tunnel URL not yet available — will appear in logs"
+    if [ -z "$URL" ]; then
+        echo "  [→] Cloudflare tunnel URL pending — check /xtreamtv/tunnel.php"
     fi
 fi
 

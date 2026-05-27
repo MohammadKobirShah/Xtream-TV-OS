@@ -119,6 +119,8 @@ RUN chmod +x /entrypoint.sh
 # ── Expose Ports ─────────────────────────────────────────────
 EXPOSE 80
 EXPOSE 443
+EXPOSE 8080
+EXPOSE 8000
 
 # ── Health Check ─────────────────────────────────────────────
 HEALTHCHECK \
