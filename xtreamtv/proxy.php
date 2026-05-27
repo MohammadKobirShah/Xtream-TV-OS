@@ -63,10 +63,9 @@ if ($action === 'm3u') {
              WHERE c.is_active = 1
              ORDER BY c.group_title, c.sort_order"
         );
+        $m3uEscape = fn($v) => str_replace(['\\', '"'], ['\\\\', '\\"'], $v ?? '');
         while ($ch = $stmt->fetch()) {
-            $proxiedUrl = APP_URL . '/xtreamtv/proxy.php?url='
-                . base64_encode($ch['stream_url']);
-            $m3uEscape = fn($v) => str_replace(['\\', '"'], ['\\\\', '\\"'], $v ?? '');
+            $proxiedUrl = APP_URL . '/xtreamtv/proxy.php?id=' . $ch['id'];
             echo '#EXTINF:-1'
                 . ' tvg-id="'      . $m3uEscape($ch['tvg_id'])      . '"'
                 . ' tvg-name="'    . $m3uEscape($ch['tvg_name'])    . '"'
