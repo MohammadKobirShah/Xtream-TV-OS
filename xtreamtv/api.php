@@ -83,10 +83,9 @@ function getLiveStreams(): void
         $params
     )->fetchAll();
 
-    $proxyBase = APP_URL . '/xtreamtv/proxy.php';
     $out = [];
     foreach ($channels as $ch) {
-        $streamUrl = $proxyBase . '?url=' . base64_encode($ch['stream_url']);
+        $streamUrl = APP_URL . '/xtreamtv/proxy.php?id=' . $ch['id'];
         $out[] = [
             'num'              => $ch['id'],
             'name'             => $ch['name'],
@@ -131,10 +130,9 @@ function getVodStreams(): void
         $params
     )->fetchAll();
 
-    $proxyBase = APP_URL . '/xtreamtv/proxy.php';
     $out = [];
     foreach ($channels as $ch) {
-        $streamUrl = $proxyBase . '?url=' . base64_encode($ch['stream_url']);
+        $streamUrl = APP_URL . '/xtreamtv/proxy.php?id=' . $ch['id'];
         $out[] = [
             'num'           => $ch['id'],
             'name'          => $ch['name'],
@@ -156,7 +154,7 @@ function getVodInfo(): void
     $ch = Database::query("SELECT * FROM channels WHERE id = ? AND is_active = 1", [$id])->fetch();
     if (!$ch) { echo json_encode([]); return; }
 
-    $proxyUrl = APP_URL . '/xtreamtv/proxy.php?url=' . base64_encode($ch['stream_url']);
+    $proxyUrl = APP_URL . '/xtreamtv/proxy.php?id=' . $ch['id'];
     echo json_encode([
         'info' => [
             'name'       => $ch['name'],

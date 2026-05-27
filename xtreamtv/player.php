@@ -66,7 +66,7 @@ $channels = Database::query(
 )->fetchAll();
 
 $streamUrl = $channel
-    ? APP_URL . '/xtreamtv/proxy.php?url=' . base64_encode($channel['stream_url'])
+    ? APP_URL . '/xtreamtv/proxy.php?id=' . $channel['id']
     : '';
 
 $epgProgress = $epgCurrent ? EPGEngine::programProgress($epgCurrent) : 0;
@@ -432,7 +432,7 @@ footer {
       ?>
       <a href="<?= $e($href) ?>" class="ch-item <?= $isActive ? 'active' : '' ?>"
          data-channel-id="<?= $ch['id'] ?>"
-         data-stream-url="<?= $e(APP_URL . '/xtreamtv/proxy.php?url=' . base64_encode($ch['stream_url'])) ?>"
+         data-stream-url="<?= $e(APP_URL . '/xtreamtv/proxy.php?id=' . $ch['id']) ?>"
          data-tvg-id="<?= $e($ch['tvg_id'] ?? '') ?>"
          data-name="<?= $e($ch['name']) ?>">
 
