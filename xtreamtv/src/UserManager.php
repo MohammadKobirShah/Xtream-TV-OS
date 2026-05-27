@@ -13,13 +13,20 @@ class UserManager
 {
     public static function getAll(): array
     {
-        return Database::query(
-            "SELECT id, username, role, max_streams, expires_at, is_active, created_at, last_login,
+        $users = Database::query(
+            "SELECT id, username, is_admin, max_streams, expires_at, is_active, created_at, last_login,
                     api_token,
                     (SELECT COUNT(*) FROM stream_sessions ss WHERE ss.user_id = users.id AND ss.last_ping > ?) AS active_streams
              FROM users ORDER BY created_at DESC",
             [time() - 30]
         )->fetchAll();
+
+        foreach ($users as &$u) {
+            $u['role'] = $u['is_admin'] ? 'admin' : 'user';
+        }
+        unset($u);
+
+        return $users;
     }
 
     public static function getById(int $id): ?array
@@ -32,14 +39,15 @@ class UserManager
         if (empty($username) || strlen($username) < 3) return false;
         if (empty($password) || strlen($password) < 6)  return false;
 
-        $hash  = password_hash($password, PASSWORD_ARGON2ID);
-        $token = bin2hex(random_bytes(32));
+        $hash    = password_hash($password, PASSWORD_ARGON2ID);
+        $token   = bin2hex(random_bytes(32));
+        $isAdmin = $role === 'admin' ? 1 : 0;
 
         try {
             Database::query(
-                "INSERT INTO users (username, password, role, api_token, max_streams, expires_at)
+                "INSERT INTO users (username, password, is_admin, api_token, max_streams, expires_at)
                  VALUES (?, ?, ?, ?, ?, ?)",
-                [$username, $hash, $role, $token, $maxStreams, $expiresAt]
+                [$username, $hash, $isAdmin, $token, $maxStreams, $expiresAt]
             );
             return (int)Database::lastInsertId();
         } catch (PDOException $e) {
@@ -50,7 +58,12 @@ class UserManager
 
     public static function update(int $id, array $data): bool
     {
-        $allowed = ['username', 'role', 'max_streams', 'expires_at', 'is_active'];
+        // Map role field to is_admin column
+        if (array_key_exists('role', $data)) {
+            $data['is_admin'] = $data['role'] === 'admin' ? 1 : 0;
+        }
+
+        $allowed = ['username', 'is_admin', 'max_streams', 'expires_at', 'is_active'];
         $sets    = [];
         $vals    = [];
 

@@ -73,7 +73,7 @@ final class Auth
     public static function check(): bool
     {
         return !empty($_SESSION['auth_user_id'])
-            && !empty($_SESSION['auth_role'])
+            && isset($_SESSION['auth_is_admin'])
             && !empty($_SESSION['auth_token']);
     }
 

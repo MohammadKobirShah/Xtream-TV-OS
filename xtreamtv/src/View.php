@@ -421,7 +421,7 @@ class View
     {$navHtml}
   </nav>
   <div class="sidebar-user">
-    <div class="user-avatar">{$username[0]}</div>
+    <div class="user-avatar">{substr($username, 0, 1) ?: '?'}</div>
     <div class="user-info">
       <div class="user-name">{$username}</div>
       <div class="user-role">{$role}</div>

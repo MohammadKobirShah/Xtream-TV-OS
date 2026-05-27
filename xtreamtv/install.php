@@ -111,6 +111,7 @@ if ($success) {
         name          TEXT    NOT NULL,
         stream_url    TEXT    NOT NULL,
         stream_type   TEXT    DEFAULT 'live',                   -- live | vod | series
+        ffmpeg_mode   TEXT    DEFAULT 'inherit',
         sort_order    INTEGER DEFAULT 0,
         is_active     INTEGER NOT NULL DEFAULT 1,
         added_at      INTEGER NOT NULL DEFAULT (strftime('%s','now'))

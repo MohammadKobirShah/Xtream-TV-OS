@@ -82,8 +82,8 @@ match ($action) {
     'get_vod_categories'   => getVodCategories($user),
     'get_vod_streams'      => getVodStreams($user),
     'get_vod_info'         => getVodInfo($user),
-    'get_series_categories'=> echo(json_encode([])), // Placeholder
-    'get_series'           => echo(json_encode([])),
+    'get_series_categories'=> (function() { echo json_encode([]); })(), // Placeholder
+    'get_series'           => (function() { echo json_encode([]); })(),
     'get_short_epg'        => getShortEPG($user),
     'get_epg_channels'     => getEPGChannels($user),
     default                => userInfo($user),        // No action = user/server info

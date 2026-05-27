@@ -110,10 +110,20 @@ class Security
     public static function login(array $user): void
     {
         session_regenerate_id(true);
+        $role = $user['is_admin'] ? 'admin' : 'user';
+
         $_SESSION['user_id']  = $user['id'];
         $_SESSION['username'] = $user['username'];
-        $_SESSION['role']     = $user['role'];
+        $_SESSION['role']     = $role;
         $_SESSION['token']    = $user['api_token'];
+
+        // Set Auth-class session keys for pages that use Auth::check()
+        $_SESSION['auth_user_id']    = $user['id'];
+        $_SESSION['auth_username']   = $user['username'];
+        $_SESSION['auth_is_admin']   = (bool)$user['is_admin'];
+        $_SESSION['auth_token']      = $user['api_token'] ?? '';
+        $_SESSION['auth_max_streams']= $user['max_streams'] ?? 1;
+        $_SESSION['auth_logged_at']  = time();
 
         // Update last login
         Database::query(

@@ -159,8 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // ── Fetch Playlists ─────────────────────────────────────────
 $playlists = $isAdmin
-    ? Database::query("SELECT p.*, u.username FROM playlists p JOIN users u ON u.id = p.user_id ORDER BY p.created_at DESC")->fetchAll()
-    : Database::query("SELECT p.*, u.username FROM playlists p JOIN users u ON u.id = p.user_id WHERE p.user_id = ? ORDER BY p.created_at DESC", [$userId])->fetchAll();
+    ? Database::query("SELECT p.*, u.username FROM playlists p JOIN users u ON u.id = p.user_id ORDER BY p.added_at DESC")->fetchAll()
+    : Database::query("SELECT p.*, u.username FROM playlists p JOIN users u ON u.id = p.user_id WHERE p.user_id = ? ORDER BY p.added_at DESC", [$userId])->fetchAll();
 
 $csrf = Security::csrfToken();
 

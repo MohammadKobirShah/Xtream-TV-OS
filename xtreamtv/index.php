@@ -111,19 +111,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // ── Stats ─────────────────────────────────────────────────
 $db = Database::getInstance();
+$uid = $user['id'];
+$cutoff = time() - 30;
+
+$q = function(string $sql, array $params = []) use ($db): int {
+    $s = $db->prepare($sql); $s->execute($params); return (int)$s->fetchColumn();
+};
+
 $stats = [
-    'playlists'     => (int)$db->query("SELECT COUNT(*) FROM playlists WHERE user_id = {$user['id']}")->fetchColumn(),
-    'channels'      => (int)$db->query("SELECT COUNT(*) FROM channels c JOIN playlists p ON p.id=c.playlist_id WHERE p.user_id={$user['id']} AND c.is_active=1")->fetchColumn(),
-    'live'          => (int)$db->query("SELECT COUNT(*) FROM channels c JOIN playlists p ON p.id=c.playlist_id WHERE p.user_id={$user['id']} AND c.stream_type='live'")->fetchColumn(),
-    'vod'           => (int)$db->query("SELECT COUNT(*) FROM channels c JOIN playlists p ON p.id=c.playlist_id WHERE p.user_id={$user['id']} AND c.stream_type='vod'")->fetchColumn(),
-    'active_streams'=> (int)$db->query("SELECT COUNT(*) FROM stream_sessions WHERE user_id={$user['id']} AND last_ping > " . (time()-30))->fetchColumn(),
+    'playlists'     => $q("SELECT COUNT(*) FROM playlists WHERE user_id = ?", [$uid]),
+    'channels'      => $q("SELECT COUNT(*) FROM channels c JOIN playlists p ON p.id=c.playlist_id WHERE p.user_id=? AND c.is_active=1", [$uid]),
+    'live'          => $q("SELECT COUNT(*) FROM channels c JOIN playlists p ON p.id=c.playlist_id WHERE p.user_id=? AND c.stream_type='live'", [$uid]),
+    'vod'           => $q("SELECT COUNT(*) FROM channels c JOIN playlists p ON p.id=c.playlist_id WHERE p.user_id=? AND c.stream_type='vod'", [$uid]),
+    'active_streams'=> $q("SELECT COUNT(*) FROM stream_sessions WHERE user_id=? AND last_ping > ?", [$uid, $cutoff]),
     'epg_programs'  => (int)$db->query("SELECT COUNT(*) FROM epg_programs")->fetchColumn(),
     'uptime'        => self_uptime(),
 ];
 if ($isAdmin) {
     $stats['total_users']   = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn();
     $stats['total_channels']= (int)$db->query("SELECT COUNT(*) FROM channels WHERE is_active=1")->fetchColumn();
-    $stats['global_streams']= (int)$db->query("SELECT COUNT(*) FROM stream_sessions WHERE last_ping > " . (time()-30))->fetchColumn();
+    $stats['global_streams']= $q("SELECT COUNT(*) FROM stream_sessions WHERE last_ping > ?", [$cutoff]);
 }
 
 // ── Playlists ─────────────────────────────────────────────
