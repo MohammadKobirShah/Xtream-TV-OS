@@ -1,6 +1,5 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__ . '/config.php';
 
 $tunnelFile = '/tmp/tunnel-url.txt';
 $pidFile    = '/tmp/cloudflared.pid';
@@ -22,7 +21,6 @@ if (file_exists($tunnelFile)) {
     }
 }
 
-// Fallback: scrape from raw log if tunnel URL file hasn't been written yet
 if ($tunnelUrl === null && file_exists($logFile)) {
     $log = file_get_contents($logFile) ?: '';
     if (preg_match('/https?:\/\/[a-z0-9-]+\.trycloudflare\.com/', $log, $m)) {
