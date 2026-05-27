@@ -126,6 +126,10 @@ services:
       - "com.xtreamtv.service=cloudflare-tunnel-quick"
 
 # ── Named Volumes ──────────────────────────────────────────
+# Localhost: persists DB/cache between restarts via Docker volume.
+# Railway:    Use Railway Volumes (dashboard → Volume → mount at
+#            /var/www/html/xtreamtv/storage) for persistent DB.
+#            Otherwise the SQLite DB is re-created on every deploy.
 volumes:
   xtreamtv_storage:
     driver: local

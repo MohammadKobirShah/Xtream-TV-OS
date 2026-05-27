@@ -60,8 +60,13 @@ fi
 DB="$STORAGE/database.sqlite"
 if [ ! -f "$DB" ]; then
     echo "  [→] First run detected — running auto-installer..."
-    php /var/www/html/xtreamtv/install.php --cli 2>/dev/null || true
-    echo "  [✓] Database initialized"
+    php /var/www/html/xtreamtv/install.php --cli || true
+    if [ -f "$DB" ]; then
+        echo "  [✓] Database initialized"
+    else
+        echo "  [!] Database not created — checking storage permissions..."
+        ls -la "$STORAGE" 2>/dev/null
+    fi
 fi
 
 echo ""

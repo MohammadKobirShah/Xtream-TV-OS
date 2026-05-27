@@ -19,6 +19,10 @@ define('INSTALL_MODE', true);
 define('DEVELOPER_CREDIT', 'Powered by Kobir Shah');
 define('APP_VERSION_INSTALL', '2.0.1');
 
+// ── CLI mode ───────────────────────────────────────────────
+// When --cli is passed, output plain text instead of HTML
+$isCli = in_array('--cli', $argv ?? [], true);
+
 $dbPath      = __DIR__ . '/storage/database.sqlite';
 $storagePath = __DIR__ . '/storage';
 $cachePath   = __DIR__ . '/storage/cache';
@@ -231,6 +235,29 @@ if ($success) {
 }
 
 // ── Render ─────────────────────────────────────────────────
+if ($isCli):
+    // ── CLI output ─────────────────────────────────────────
+    echo "\n";
+    echo "╔══════════════════════════════════════════════════════╗\n";
+    echo "║   ⚡ XtreamTV IPTV OS — Installer v" . APP_VERSION_INSTALL . "            ║\n";
+    echo "║   " . DEVELOPER_CREDIT . "                   ║\n";
+    echo "╚══════════════════════════════════════════════════════╝\n";
+    echo "\n";
+    foreach ($steps as [$type, $msg]) {
+        $icon = match($type) { 'ok' => '✓', 'err' => '✗', 'skip' => '→' };
+        echo "  [$icon] $msg\n";
+    }
+    echo "\n";
+    if ($success) {
+        echo "  🎉 Installation Complete!\n";
+        echo "  🔐 Admin: admin / admin123\n";
+    } else {
+        echo "  ❌ Installation Failed — check storage/ permissions\n";
+    }
+    echo "  " . DEVELOPER_CREDIT . "\n";
+    echo "\n";
+else:
+    // ── HTML output ─────────────────────────────────────────
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -303,3 +330,4 @@ if ($success) {
 </div>
 </body>
 </html>
+<?php endif; ?>
