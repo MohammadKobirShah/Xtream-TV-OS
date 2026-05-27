@@ -5,7 +5,7 @@
  * ============================================================
  *  Developer        : Kobir Shah
  *  DEVELOPER_CREDIT : Powered by Kobir Shah
- *  Version          : 2.0.0
+ *  Version          : 2.0.1
  *  PHP              : 8.2+
  *
  *  BugFix: Added DEVELOPER_CREDIT constant (was missing).
@@ -21,7 +21,7 @@ date_default_timezone_set('UTC');
 
 // ── Application Constants ─────────────────────────────────────
 define('APP_NAME',      'XtreamTV');
-define('APP_VERSION',   '2.0.0');                          // FIX: was '1.0.0'
+define('APP_VERSION',   '2.0.1');                          // FIX: was '1.0.0'
 define('APP_AUTHOR',    'Kobir Shah');
 define('DEVELOPER_CREDIT', 'Powered by Kobir Shah');       // FIX: was missing entirely
 define('APP_URL',       rtrim(

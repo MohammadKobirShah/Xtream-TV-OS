@@ -5,7 +5,7 @@
  *  Phase 1: Foundation & Database Setup
  * ============================================================
  *  Developer  : Kobir Shah
- *  Version    : 2.0.0
+ *  Version    : 2.0.1
  *  PHP        : 8.2+
  *  Run once   : http://yourserver/xtreamtv/install.php
  *  Delete after installation for security!
@@ -17,7 +17,7 @@ declare(strict_types=1);
 // ── Constants (pre-config bootstrap) ────────────────────────
 define('INSTALL_MODE', true);
 define('DEVELOPER_CREDIT', 'Powered by Kobir Shah');
-define('APP_VERSION_INSTALL', '2.0.0');
+define('APP_VERSION_INSTALL', '2.0.1');
 
 $dbPath      = __DIR__ . '/storage/database.sqlite';
 $storagePath = __DIR__ . '/storage';
