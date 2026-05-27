@@ -239,8 +239,8 @@ XtreamTV ships with **both** tunnel modes ready to use:
 
 | Mode | Service name | Token needed? | URL | Best for |
 |------|-------------|---------------|-----|----------|
-| **Named** | `cloudflared` | ✅ `CLOUDFLARE_TUNNEL_TOKEN` | Your custom domain (e.g. `tv.yourdomain.com`) | Production, permanent setup |
-| **Quick** | `cloudflared-quick` | ❌ None | Random `*.trycloudflare.com` | Testing, demos, ephemeral access |
+| **Named** | `cloudflared` | ✅ `CLOUDFLARE_TUNNEL_TOKEN` | Your custom domain (e.g. `tv.yourdomain.com`) | Production, permanent |
+| **Quick** | `cloudflared-quick` | ❌ None | Random `*.trycloudflare.com` | Testing, demos, ephemeral |
 
 ```bash
 # ─── Named tunnel (production) ──────────────────────────────
