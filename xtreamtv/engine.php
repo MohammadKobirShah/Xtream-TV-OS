@@ -486,8 +486,7 @@ final class M3UEngine
         }
 
         $scheme = strtolower($parsed['scheme']);
-        $allowedSchemes = ['http', 'https', 'rtmp', 'rtsp'];
-        if (!in_array($scheme, $allowedSchemes, true)) {
+        if (!in_array($scheme, ALLOWED_SCHEMES, true)) {
             throw new \RuntimeException("Blocked scheme: {$scheme}");
         }
 
@@ -571,10 +570,11 @@ final class M3UEngine
     }
 
     /**
-     * HTML-safe escaping for M3U attribute output.
+     * Escape special characters for M3U attribute output.
+     * M3U is plain text — no HTML encoding. Escape quotes and backslashes.
      */
     private static function escape(string $val): string
     {
-        return htmlspecialchars($val, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return str_replace(['\\', '"'], ['\\\\', '\\"'], $val);
     }
 }

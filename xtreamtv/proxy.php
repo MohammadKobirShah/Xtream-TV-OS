@@ -66,12 +66,13 @@ if ($action === 'm3u') {
         while ($ch = $stmt->fetch()) {
             $proxiedUrl = APP_URL . '/xtreamtv/proxy.php?url='
                 . base64_encode($ch['stream_url']);
+            $m3uEscape = fn($v) => str_replace(['\\', '"'], ['\\\\', '\\"'], $v ?? '');
             echo '#EXTINF:-1'
-                . ' tvg-id="'      . htmlspecialchars($ch['tvg_id']      ?? '', ENT_QUOTES, 'UTF-8') . '"'
-                . ' tvg-name="'    . htmlspecialchars($ch['tvg_name']    ?? '', ENT_QUOTES, 'UTF-8') . '"'
-                . ' tvg-logo="'    . htmlspecialchars($ch['tvg_logo']    ?? '', ENT_QUOTES, 'UTF-8') . '"'
-                . ' group-title="' . htmlspecialchars($ch['group_title'] ?? '', ENT_QUOTES, 'UTF-8') . '"'
-                . ',' . htmlspecialchars($ch['name'], ENT_QUOTES, 'UTF-8') . "\n"
+                . ' tvg-id="'      . $m3uEscape($ch['tvg_id'])      . '"'
+                . ' tvg-name="'    . $m3uEscape($ch['tvg_name'])    . '"'
+                . ' tvg-logo="'    . $m3uEscape($ch['tvg_logo'])    . '"'
+                . ' group-title="' . $m3uEscape($ch['group_title']) . '"'
+                . ',' . $m3uEscape($ch['name']) . "\n"
                 . $proxiedUrl . "\n";
         }
     }

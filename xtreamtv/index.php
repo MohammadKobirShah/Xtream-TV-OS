@@ -49,15 +49,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
                 );
                 $pdo->beginTransaction();
-                foreach ($channels as $i => $ch) {
-                    $stmt->execute([
-                        $playlistId, $ch['tvg_id']??'', $ch['tvg_name']??'',
-                        $ch['tvg_logo']??'', $ch['group_title']??'Uncategorized',
-                        $ch['name']??'Unknown', $ch['stream_url']??'',
-                        $ch['stream_type']??'live', $i,
-                    ]);
+                try {
+                    foreach ($channels as $i => $ch) {
+                        $stmt->execute([
+                            $playlistId, $ch['tvg_id']??'', $ch['tvg_name']??'',
+                            $ch['tvg_logo']??'', $ch['group_title']??'Uncategorized',
+                            $ch['name']??'Unknown', $ch['stream_url']??'',
+                            $ch['stream_type']??'live', $i,
+                        ]);
+                    }
+                    $pdo->commit();
+                } catch (\Throwable $e) {
+                    $pdo->rollBack();
+                    throw $e;
                 }
-                $pdo->commit();
 
                 Database::query(
                     "UPDATE playlists SET channel_count = ?, last_synced = strftime('%s','now') WHERE id = ?",
@@ -69,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     try {
                         M3UEngine::assertSafeUrl($epgUrl);
                         $epgImported = EPGEngine::importEPG($epgUrl, $playlistId);
-                    } catch (\Throwable) {}
+                    } catch (\Throwable $e) {}
                 }
 
                 $flashMsg  = "✅ Imported '{$name}' with {$count} channels" . ($epgImported ? " + {$epgImported} EPG entries." : ".");
@@ -106,7 +111,7 @@ $stats = [
     'live'         => $q("SELECT COUNT(*) FROM channels WHERE stream_type='live'"),
     'vod'          => $q("SELECT COUNT(*) FROM channels WHERE stream_type='vod'"),
     'epg_programs' => (int)$db->query("SELECT COUNT(*) FROM epg_programs")->fetchColumn(),
-    'uptime'       => self_uptime(),
+    'uptime'       => preg_replace('/\s+/', ' ', shell_exec('uptime 2>/dev/null') ?: 'N/A'),
 ];
 
 $playlists = Database::query("SELECT * FROM playlists ORDER BY added_at DESC")->fetchAll();

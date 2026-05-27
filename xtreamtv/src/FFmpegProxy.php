@@ -172,21 +172,21 @@ final class FFmpegProxy
 
         return match ($quality) {
             'passthru', '4k' => sprintf(
-                '%s %s -i %s -c:v copy -c:a copy -f mpegts %s 2>&1',
+                '%s %s -i %s -c:v copy -c:a copy -f mpegts %s',
                 escapeshellcmd(self::FFMPEG_BIN),
                 $inputFlags,
                 $safeUrl,
                 $outputPipe
             ),
             'hd' => sprintf(
-                '%s %s -i %s -vf scale=1280:720 -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 128k -f mpegts %s 2>&1',
+                '%s %s -i %s -vf scale=1280:720 -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 128k -f mpegts %s',
                 escapeshellcmd(self::FFMPEG_BIN),
                 $inputFlags,
                 $safeUrl,
                 $outputPipe
             ),
             'sd' => sprintf(
-                '%s %s -i %s -vf scale=854:480 -c:v libx264 -preset veryfast -crf 28 -c:a aac -b:a 96k -f mpegts %s 2>&1',
+                '%s %s -i %s -vf scale=854:480 -c:v libx264 -preset veryfast -crf 28 -c:a aac -b:a 96k -f mpegts %s',
                 escapeshellcmd(self::FFMPEG_BIN),
                 $inputFlags,
                 $safeUrl,

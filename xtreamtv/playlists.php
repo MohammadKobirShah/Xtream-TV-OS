@@ -34,6 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             try {
                 set_time_limit(300);
+                if (!defined('M3UEngine::class')) require_once __DIR__ . '/engine.php';
+                M3UEngine::assertSafeUrl($url);
                 $count = M3UParser::parseFromUrl($url, $playlistId);
                 M3UParser::flushInserts();
                 Database::query(
@@ -121,6 +123,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($pl && !empty($pl['url'])) {
             try {
                 set_time_limit(300);
+                if (!defined('M3UEngine::class')) require_once __DIR__ . '/engine.php';
+                M3UEngine::assertSafeUrl($pl['url']);
                 Database::query("DELETE FROM channels WHERE playlist_id = ?", [$pid]);
                 $count = M3UParser::parseFromUrl($pl['url'], $pid);
                 M3UParser::flushInserts();

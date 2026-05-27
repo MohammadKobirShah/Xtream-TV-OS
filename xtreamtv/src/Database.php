@@ -100,7 +100,7 @@ class Database
             if (!in_array('ffmpeg_mode', $cols, true)) {
                 $pdo->exec("ALTER TABLE channels ADD COLUMN ffmpeg_mode TEXT DEFAULT 'inherit'");
             }
-        } catch (\Throwable) {}
+        } catch (\Throwable $e) {}
 
         $defaults = [
             ['site_name',        'XtreamTV IPTV OS'],

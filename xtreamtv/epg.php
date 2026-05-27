@@ -343,7 +343,7 @@ final class EPGEngine
                 $dt = new \DateTimeImmutable($m[1] . $tzFormatted);
                 return $dt->getTimestamp();
             }
-        } catch (\Throwable) {}
+        } catch (\Throwable $e) {}
 
         // Fallback: strtotime
         $ts = strtotime($dateStr);

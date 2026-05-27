@@ -471,12 +471,12 @@ console.log('%c✦ Developed by Kobir Shah ✦', 'color:#a855f7;font-size:11px;'
 
 const state = {
   currentChannelId: <?= $channelId ?: 'null' ?>,
-  currentStreamUrl: <?= $streamUrl ? "'" . addslashes($streamUrl) . "'" : 'null' ?>,
+  currentStreamUrl: <?= json_encode($streamUrl) ?: 'null' ?>,
   hls: null,
   reconnectTimer: null,
   reconnectAttempts: 0,
   maxReconnectAttempts: 5,
-  epgTvgId: <?= $channel && $channel['tvg_id'] ? "'" . addslashes($channel['tvg_id']) . "'" : 'null' ?>,
+  epgTvgId: <?= json_encode($channel['tvg_id'] ?? null) ?: 'null' ?>,
 };
 
 const video       = document.getElementById('mainVideo');

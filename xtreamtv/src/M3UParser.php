@@ -160,7 +160,7 @@ class M3UParser
             if ($pdo->inTransaction()) {
                 $pdo->commit();
             }
-        } catch (\Throwable) {}
+        } catch (\Throwable $e) {}
     }
 
     /** Parse a single #EXTINF line into metadata array */

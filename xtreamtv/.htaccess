@@ -78,7 +78,7 @@ ServerSignature Off
 </FilesMatch>
 
 # Block PHP config + database class files
-<FilesMatch "^(config|Database|Security)\.(php)$">
+<FilesMatch "^(config|Database)\.(php)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

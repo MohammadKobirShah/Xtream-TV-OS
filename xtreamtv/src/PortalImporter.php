@@ -41,10 +41,10 @@ class PortalImporter
         ]);
 
         // Step 3: Verify auth with a simple call
-        $this->httpGet($this->server . self::STALKER_API . '?type=stb&action=get_profile', [
-            'mac' => $this->mac,
-            'stb_type' => $this->stbType,
-        ]);
+        $this->httpGet($this->server . self::STALKER_API
+            . '?type=stb&action=get_profile'
+            . '&mac=' . urlencode($this->mac)
+            . '&stb_type=' . urlencode($this->stbType));
     }
 
     /**
