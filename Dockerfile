@@ -12,16 +12,16 @@ FROM php:8.2-apache
 # ── Image Metadata ───────────────────────────────────────────
 LABEL maintainer="Kobir Shah" \
       developer="Kobir Shah" \
-      version="2.0.0" \
+      version="2.0.1" \
       description="XtreamTV IPTV OS — Elite PHP IPTV Proxy Panel" \
       org.opencontainers.image.title="XtreamTV IPTV OS" \
       org.opencontainers.image.description="Production-grade IPTV proxy panel by Kobir Shah" \
       org.opencontainers.image.authors="Kobir Shah" \
-      org.opencontainers.image.version="2.0.0"
+      org.opencontainers.image.version="2.0.1"
 
 # ── Build-time args (override with --build-arg if needed) ────
 ARG DEBIAN_FRONTEND=noninteractive
-ARG APP_VERSION=2.0.0
+ARG APP_VERSION=2.0.1
 
 # ── System dependencies (single RUN layer = smaller image) ───
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -51,7 +51,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zip \
         opcache \
     # ── Apache modules ──────────────────────────────────────
-    && a2enmod \
+    # Disable conflicting MPMs before enabling modules
+    # (php:8.2-apache ships with mpm_prefork — ensure no other MPM is active)
+    && a2dismod -f mpm_event mpm_worker 2>/dev/null; \
+    a2enmod \
         rewrite \
         headers \
         deflate \
@@ -115,7 +118,7 @@ HEALTHCHECK \
 # ── Runtime Environment Variables ────────────────────────────
 ENV DEVELOPER="Kobir Shah" \
     APP_NAME="XtreamTV" \
-    APP_VERSION="2.0.0" \
+    APP_VERSION="2.0.1" \
     DEVELOPER_CREDIT="Powered by Kobir Shah" \
     APACHE_DOCUMENT_ROOT="/var/www/html" \
     TZ="UTC"
