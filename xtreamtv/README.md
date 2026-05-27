@@ -4,7 +4,7 @@
 > Built with maximum performance, security, and a $500-tier premium dark UI.
 
 **Developer:** Kobir Shah  
-**Version:** 1.0.0  
+**Version:** 2.0.1  
 **Engine:** PHP 8.2 | SQLite (WAL mode) | Vanilla OOP | No bloated frameworks
 
 ---
@@ -17,21 +17,29 @@ xtreamtv/
 ├── index.php               ← Dashboard
 ├── login.php               ← Secure login (rate-limited, CSRF-protected)
 ├── logout.php              ← Session destruction
+├── settings.php            ← Admin settings (FFmpeg, caching, branding)
+├── player.php              ← Cinematic player with EPG overlay
 ├── playlists.php           ← M3U playlist manager (URL + file upload)
 ├── channels.php            ← Channel browser, search, filter, manage
 ├── users.php               ← User management (Admin only)
 ├── api_info.php            ← API credentials + setup guide
 ├── logs.php                ← Access log viewer (Admin only)
 ├── proxy.php               ← Universal proxy endpoint (streams + M3U)
-├── player_api.php          ← Xtream Codes API (TiviMate / IPTV Smarters)
+├── api.php                 ← Xtream Codes API (TiviMate / IPTV Smarters)
+├── epg.php                 ← EPG data (XMLTV) fetch + cache
+├── epg_api.php             ← EPG API endpoints
+├── engine.php              ← M3U engine, cache layer
 ├── live_stream.php         ← /live/{user}/{pass}/{id}.ts route handler
+├── auth.php                ← Auth middleware class
 ├── .htaccess               ← Apache security + URL routing
 ├── preview.html            ← Static UI preview (no PHP required)
+├── install.php             ← Database installer
 └── src/
     ├── Database.php        ← SQLite PDO singleton, WAL, migrations
     ├── Security.php        ← CSRF, XSS, SSRF, rate-limiting, auth
     ├── M3UParser.php       ← Chunked M3U parser (streaming, no RAM bloat)
     ├── StreamProxy.php     ← cURL stream forwarder (chunked, memory-safe)
+    ├── FFmpegProxy.php     ← FFmpeg transcoding proxy
     ├── XtreamAPI.php       ← Xtream Codes API compatibility layer
     ├── UserManager.php     ← User CRUD, token management, stats
     └── View.php            ← Layout engine, glassmorphism dark UI
@@ -141,9 +149,9 @@ http://yourserver.com/xtreamtv/live/{username}/{token}/{channel_id}.ts
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/player_api.php?username=X&password=X` | GET | User info + server info |
-| `/player_api.php?...&action=get_live_categories` | GET | Channel categories list |
-| `/player_api.php?...&action=get_live_streams` | GET | All channels (Xtream format) |
+| `/api.php?username=X&password=X` | GET | User info + server info |
+| `/api.php?username=X&password=X&action=get_live_categories` | GET | Channel categories list |
+| `/api.php?username=X&password=X&action=get_live_streams` | GET | All channels (Xtream format) |
 | `/proxy.php?action=m3u&t=TOKEN` | GET | Full M3U playlist download |
 | `/proxy.php?id=ID&t=TOKEN` | GET | Proxy a specific channel |
 | `/live/{user}/{pass}/{id}.ts` | GET | Direct TS stream |
