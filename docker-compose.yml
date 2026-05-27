@@ -85,7 +85,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: kobir_iptv_cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
@@ -108,7 +108,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: kobir_iptv_cloudflared_quick
     restart: unless-stopped
-    command: tunnel --no-autoupdate --url http://iptv-os:80
+    command: tunnel --url http://iptv-os:80
     depends_on:
       - iptv-os
     networks:
