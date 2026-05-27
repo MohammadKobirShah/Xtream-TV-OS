@@ -74,15 +74,13 @@ services:
       - "com.xtreamtv.developer=Kobir Shah"
       - "com.xtreamtv.service=cache"
 
-  # ── Cloudflare Tunnel ────────────────────────────────────
-  # Exposes localhost:8080 to the internet via Cloudflare Zero Trust.
-  # No port-forwarding, no reverse proxy setup, instant HTTPS.
+  # ── Cloudflare Tunnel (Named) ────────────────────────────
+  # Persistent tunnel. Requires a configured tunnel in Cloudflare Zero Trust
+  # dashboard with a DNS CNAME pointing to your tunnel ID.
   #
-  # Token is read from .env → CLOUDFLARE_TUNNEL_TOKEN
-  # ⚠️  NEVER hardcode the token here. Keep .env in .gitignore.
+  # Token from: https://one.dash.cloudflare.com → Zero Trust → Tunnels
   #
-  # Dashboard : https://one.dash.cloudflare.com
-  # Docs      : https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/
+  # Usage: set CLOUDFLARE_TUNNEL_TOKEN=eyJ... in .env
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: kobir_iptv_cloudflared
@@ -92,12 +90,34 @@ services:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
       iptv-os:
-        condition: service_healthy   # waits for PHP app to pass health check
+        condition: service_healthy
     networks:
       - xtreamtv_net
     labels:
       - "com.xtreamtv.developer=Kobir Shah"
       - "com.xtreamtv.service=cloudflare-tunnel"
+
+  # ── Cloudflare Tunnel (Quick) ─────────────────────────────
+  # Temporary public URL (https://random-name.trycloudflare.com).
+  # No Cloudflare account needed — just start and get a URL instantly.
+  # Great for testing, demos, or ephemeral access.
+  #
+  # To use: comment out the "cloudflared" service above, then:
+  #   docker compose up -d cloudflared-quick
+  #   docker compose logs cloudflared-quick  → look for the *.trycloudflare.com URL
+  cloudflared-quick:
+    image: cloudflare/cloudflared:latest
+    container_name: kobir_iptv_cloudflared_quick
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://iptv-os:80
+    depends_on:
+      iptv-os:
+        condition: service_healthy
+    networks:
+      - xtreamtv_net
+    labels:
+      - "com.xtreamtv.developer=Kobir Shah"
+      - "com.xtreamtv.service=cloudflare-tunnel-quick"
 
 # ── Named Volumes ──────────────────────────────────────────
 volumes:

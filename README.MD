@@ -230,7 +230,31 @@ docker compose up -d --build
 |---|---|---|---|
 | `kobir_iptv_os` | Built from `Dockerfile` | PHP 8.2 + Apache | `8080` |
 | `kobir_iptv_redis` | `redis:7-alpine` | Cache / sessions | internal |
-| `kobir_iptv_cloudflared` | `cloudflare/cloudflared:latest` | Public HTTPS tunnel | — |
+| `kobir_iptv_cloudflared` | `cloudflare/cloudflared:latest` | Named tunnel (persistent) | — |
+| `kobir_iptv_cloudflared_quick` | `cloudflare/cloudflared:latest` | Quick tunnel (temporary) | — |
+
+### 𝗖𝗹𝗼𝘂𝗱𝗳𝗹𝗮𝗿𝗲 𝗧𝘂𝗻𝗻𝗲𝗹 — 𝗧𝘄𝗼 𝗠𝗼𝗱𝗲𝘀
+
+XtreamTV ships with **both** tunnel modes ready to use:
+
+| Mode | Service name | Token needed? | URL | Best for |
+|------|-------------|---------------|-----|----------|
+| **Named** | `cloudflared` | ✅ `CLOUDFLARE_TUNNEL_TOKEN` | Your custom domain (e.g. `tv.yourdomain.com`) | Production, permanent setup |
+| **Quick** | `cloudflared-quick` | ❌ None | Random `*.trycloudflare.com` | Testing, demos, ephemeral access |
+
+```bash
+# ─── Named tunnel (production) ──────────────────────────────
+# 1. Set CLOUDFLARE_TUNNEL_TOKEN=eyJ... in .env
+# 2. Start
+docker compose up -d cloudflared
+
+# ─── Quick tunnel (testing) ─────────────────────────────────
+# No .env setup needed. Instant public URL.
+docker compose up -d cloudflared-quick
+docker compose logs cloudflared-quick   # look for https://xxxx.trycloudflare.com
+```
+
+> ⚠️ Only run **one** tunnel at a time. If both are up, they'll compete for port 80.
 
 ### 𝗘𝗻𝘃𝗶𝗿𝗼𝗻𝗺𝗲𝗻𝘁 𝗩𝗮𝗿𝗶𝗮𝗯𝗹𝗲𝘀
 
@@ -241,11 +265,13 @@ HTTP_PORT=8080
 TZ=UTC
 PHP_MEMORY_LIMIT=512M
 
-# Cloudflare Zero Trust tunnel token
+# Cloudflare tunnel token (only needed for named tunnel mode)
+# Quick tunnel mode does NOT require this
 CLOUDFLARE_TUNNEL_TOKEN=your_token_here
 ```
 
-> ⚠️ The token is injected via `${CLOUDFLARE_TUNNEL_TOKEN}` in `docker-compose.yml`. It is never hardcoded.
+> ⚠️ The token is injected via `${CLOUDFLARE_TUNNEL_TOKEN}` in `docker-compose.yml`. It is never hardcoded.  
+> 💡 Use `cloudflared-quick` service instead if you don't have a Cloudflare account.
 
 ---
 
