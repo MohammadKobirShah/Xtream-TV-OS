@@ -73,6 +73,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         /usr/share/doc/* \
         /usr/share/man/*
 
+# ── Cloudflared (for Railway auto-tunnel) ────────────────────
+# Single static binary — works on any architecture.
+# Non-fatal: localhost builds are fine without it.
+RUN ARCH=$(dpkg --print-architecture) \
+    && curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}" \
+            -o /usr/local/bin/cloudflared 2>/dev/null \
+    && chmod +x /usr/local/bin/cloudflared \
+    || echo "  [i] cloudflared binary skipped (not required for localhost)"
+
 # ── PHP Runtime Configuration ────────────────────────────────
 COPY docker/php/custom.ini /usr/local/etc/php/conf.d/xtreamtv.ini
 

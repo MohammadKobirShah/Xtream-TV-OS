@@ -85,6 +85,55 @@ if [ "$PORT" != "" ] && [ "$PORT" != "80" ]; then
     echo "  [✓] Apache configured to listen on port $PORT"
 fi
 
+# ── Railway: enforce Cloudflare CDN for stream paths ────────
+# Block playlist/live/movie/series access unless request comes
+# through Cloudflare tunnel (identified by Cf-Ray header).
+if [ "$PORT" != "" ]; then
+    cat > /etc/apache2/conf-enabled/cloudflare-enforce.conf << 'CFEOF'
+# ── Cloudflare CDN Enforce ─────────────────────────────────
+# Requests without Cf-Ray header are direct (not via Cloudflare tunnel).
+# Stream/playlist endpoints are blocked — CF CDN only.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP:CF-Ray} !^.+$
+    RewriteRule ^/xtreamtv/(live|movie|series|player_api|get\.php) - [F,L]
+</IfModule>
+CFEOF
+    echo "  [✓] Cloudflare CDN enforced for stream/playlist paths"
+fi
+
+# ── Railway: start Cloudflare Quick Tunnel ──────────────────
+if [ "$PORT" != "" ] && command -v cloudflared &>/dev/null; then
+    CLOUDLOG="/tmp/cloudflared.log"
+    cloudflared tunnel --url "http://localhost:$PORT" > "$CLOUDLOG" 2>&1 &
+    CLOUDFLARED_PID=$!
+
+    # Wait up to 30s for the tunnel URL
+    for i in $(seq 1 30); do
+        TUNNEL_URL=$(grep -oE 'https?://[a-z0-9-]+\.trycloudflare\.com' "$CLOUDLOG" 2>/dev/null | head -1) || true
+        if [ -n "$TUNNEL_URL" ]; then
+            echo ""
+            echo "╔══════════════════════════════════════════════════════╗"
+            echo "║   🌐 Cloudflare Quick Tunnel Active                 ║"
+            printf "║   %-43s║\n" "$TUNNEL_URL"
+            echo "║                                                   ║"
+            echo "║   Use this URL for playlist & stream access        ║"
+            echo "╚══════════════════════════════════════════════════════╝"
+            echo ""
+            break
+        fi
+        if ! kill -0 "$CLOUDFLARED_PID" 2>/dev/null; then
+            echo "  [!] cloudflared exited early — check $CLOUDLOG"
+            break
+        fi
+        sleep 1
+    done
+
+    if [ -z "$TUNNEL_URL" ]; then
+        echo "  [!] Cloudflare tunnel URL not yet available — will appear in logs"
+    fi
+fi
+
 # ── Fix MPM conflict before starting Apache ────────────────
 # php:8.2-apache requires mpm_prefork (mod_php is incompatible with event/worker)
 for mpm in mpm_event mpm_worker; do
