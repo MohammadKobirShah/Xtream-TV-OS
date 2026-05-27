@@ -112,6 +112,10 @@ RUN mkdir -p \
     && find xtreamtv -type f -name "*.php" -exec chmod 644 {} \; \
     && find xtreamtv -type d -exec chmod 755 {} \;
 
+# ── Healthcheck Script ──────────────────────────────────────
+COPY docker/healthcheck.sh /healthcheck.sh
+RUN chmod +x /healthcheck.sh
+
 # ── Entrypoint Script ─────────────────────────────────────────
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
@@ -123,12 +127,13 @@ EXPOSE 8080
 EXPOSE 8000
 
 # ── Health Check ─────────────────────────────────────────────
+# Uses PORT env var (Railway) or defaults to 80
 HEALTHCHECK \
     --interval=30s \
     --timeout=10s \
     --start-period=60s \
     --retries=3 \
-    CMD curl -fsSL http://localhost/xtreamtv/login.php -o /dev/null || exit 1
+    CMD /healthcheck.sh
 
 # ── Runtime Environment Variables ────────────────────────────
 ENV DEVELOPER="Kobir Shah" \
