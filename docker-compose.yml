@@ -85,7 +85,9 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: kobir_iptv_cloudflared
     restart: unless-stopped
-    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    # Token passed via TUNNEL_TOKEN env var, NOT --token flag
+    # (some cloudflared versions mishandle --token with tunnel run)
+    command: tunnel run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
