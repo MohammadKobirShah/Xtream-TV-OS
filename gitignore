@@ -1,0 +1,38 @@
+# ============================================================
+#  XtreamTV IPTV OS — Git Ignore
+#  Developer: Kobir Shah
+#  ⚠️  The .env file contains your Cloudflare tunnel token
+#      and must NEVER be committed to any repository.
+# ============================================================
+
+# ── SECRETS (NEVER COMMIT) ───────────────────────────────────
+.env
+*.pem
+*.key
+*.crt
+*.p12
+
+# ── Runtime / Generated ──────────────────────────────────────
+xtreamtv/storage/database.sqlite
+xtreamtv/storage/cache/
+xtreamtv/storage/logs/
+xtreamtv/storage/epg/
+xtreamtv/storage/sessions/
+xtreamtv/storage/installed.lock
+xtreamtv/storage/*.m3u
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editors ──────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Node (if any tooling added later) ────────────────────────
+node_modules/
+npm-debug.log

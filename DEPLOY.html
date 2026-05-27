@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XtreamTV IPTV OS — Deploy Guide v2.0 | Kobir Shah</title>
+<style>
+/* ══════════════════════════════════════════════════════════════
+   XTREAMTV IPTV OS — DEPLOY GUIDE v2.0
+   Developer : Kobir Shah
+   Powered by: Kobir Shah
+══════════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#030306;
+  --bg-card:rgba(10,10,22,0.96);
+  --bg-card2:rgba(14,14,28,0.9);
+  --blue:#00b4ff;--purple:#a855f7;--cyan:#06b6d4;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;--pink:#ec4899;
+  --text:#e2e8f0;--muted:#64748b;--dim:#94a3b8;
+  --border:rgba(99,102,241,0.14);--border-glow:rgba(0,180,255,0.22);
+}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;line-height:1.7;overflow-x:hidden;
+}
+
+/* ── Animated grid background ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,180,255,0.022) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,180,255,0.022) 1px,transparent 1px);
+  background-size:38px 38px;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 65% 55% at 10% 10%,rgba(168,85,247,0.09) 0%,transparent 55%),
+    radial-gradient(ellipse 55% 65% at 90% 85%,rgba(0,180,255,0.07) 0%,transparent 55%),
+    radial-gradient(ellipse 40% 40% at 55% 50%,rgba(6,182,212,0.04) 0%,transparent 60%);
+}
+
+/* ══ NAVBAR ══ */
+.navbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(3,3,6,0.95);backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+  padding:0 32px;height:56px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.nav-logo{
+  font-size:1.1rem;font-weight:800;letter-spacing:-.3px;
+  background:linear-gradient(135deg,var(--blue),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.nav-links{display:flex;align-items:center;gap:6px;}
+.nav-link{
+  padding:5px 12px;border-radius:8px;font-size:.78rem;font-weight:600;
+  color:var(--dim);text-decoration:none;transition:.15s;
+}
+.nav-link:hover{background:rgba(255,255,255,.06);color:var(--text);}
+.nav-badge{
+  padding:4px 12px;border-radius:20px;font-size:.7rem;font-weight:700;
+  background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;
+  letter-spacing:.5px;
+}
+
+/* ══ HERO ══ */
+.hero{
+  position:relative;z-index:1;
+  text-align:center;padding:80px 24px 60px;
+}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 20px;border-radius:30px;margin-bottom:22px;
+  background:rgba(0,180,255,0.07);border:1px solid rgba(0,180,255,0.18);
+  font-size:.72rem;font-weight:700;color:var(--blue);letter-spacing:2px;text-transform:uppercase;
+}
+.hero-title{
+  font-size:clamp(2.2rem,6vw,3.8rem);font-weight:900;letter-spacing:-1.5px;
+  line-height:1.08;margin-bottom:18px;
+}
+.hero-title .line1{
+  background:linear-gradient(135deg,#fff 40%,var(--blue) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero-title .line2{
+  background:linear-gradient(135deg,var(--blue) 0%,var(--purple) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero-sub{
+  font-size:1.05rem;color:var(--dim);
+  max-width:580px;margin:0 auto 32px;line-height:1.7;
+}
+.hero-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:48px;}
+
+/* ── Hero stat pills ── */
+.hero-stats{
+  display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+}
+.stat-pill{
+  padding:8px 18px;border-radius:30px;font-size:.78rem;font-weight:700;
+  border:1px solid var(--border);background:rgba(255,255,255,.03);
+  display:flex;align-items:center;gap:7px;
+}
+.stat-pill .dot{width:7px;height:7px;border-radius:50%;}
+
+/* ══ BUTTONS ══ */
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:11px 26px;border-radius:12px;font-size:.88rem;font-weight:700;
+  cursor:pointer;border:1px solid transparent;text-decoration:none;transition:.2s;
+  white-space:nowrap;
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--blue),#005a99);
+  color:#fff;border-color:rgba(0,180,255,.35);
+  box-shadow:0 4px 24px rgba(0,180,255,.22);
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,180,255,.38);}
+.btn-purple{
+  background:linear-gradient(135deg,var(--purple),#6d28d9);
+  color:#fff;border-color:rgba(168,85,247,.35);
+  box-shadow:0 4px 24px rgba(168,85,247,.22);
+}
+.btn-purple:hover{transform:translateY(-2px);}
+.btn-ghost{
+  background:rgba(255,255,255,.04);color:var(--dim);
+  border-color:var(--border);
+}
+.btn-ghost:hover{background:rgba(255,255,255,.08);color:var(--text);}
+.btn-sm{padding:6px 14px;font-size:.76rem;border-radius:9px;}
+.btn-green{background:rgba(16,185,129,.12);color:var(--green);border-color:rgba(16,185,129,.25);}
+
+/* ══ CONTAINER ══ */
+.container{max-width:1040px;margin:0 auto;padding:0 24px 80px;position:relative;z-index:1;}
+
+/* ══ SECTION ══ */
+.section{margin-bottom:64px;}
+.section-eyebrow{
+  font-size:.65rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+  color:var(--blue);margin-bottom:8px;display:flex;align-items:center;gap:10px;
+}
+.section-eyebrow::after{content:'';flex:1;height:1px;background:var(--border);}
+.section-title{font-size:1.6rem;font-weight:800;letter-spacing:-.4px;margin-bottom:6px;}
+.section-sub{color:var(--dim);font-size:.9rem;margin-bottom:28px;}
+
+/* ══ GLASS CARD ══ */
+.glass{
+  background:var(--bg-card);backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:18px;
+  box-shadow:0 8px 40px rgba(0,0,0,.5);transition:.2s;overflow:hidden;
+}
+.glass:hover{border-color:var(--border-glow);}
+
+/* ══ STEP CARDS ══ */
+.steps{display:flex;flex-direction:column;gap:14px;}
+.step{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:16px;
+  padding:24px 26px;display:flex;gap:20px;align-items:flex-start;transition:.2s;
+}
+.step:hover{border-color:var(--border-glow);transform:translateX(4px);}
+.step-num{
+  width:38px;height:38px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,var(--blue),var(--purple));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:.9rem;color:#fff;
+  box-shadow:0 0 20px rgba(0,180,255,.3);
+}
+.step-body{flex:1;min-width:0;}
+.step-title{font-weight:700;font-size:.96rem;margin-bottom:5px;}
+.step-desc{color:var(--dim);font-size:.84rem;line-height:1.65;}
+
+/* ══ CODE ══ */
+.code-label{font-size:.63rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;margin-top:14px;}
+.code-block{position:relative;}
+pre{
+  background:rgba(0,0,0,.65);border:1px solid var(--border);border-radius:13px;
+  padding:18px 22px;overflow-x:auto;
+  font-family:'Cascadia Code','Fira Code','Courier New',monospace;
+  font-size:.81rem;color:#a5f3fc;line-height:1.75;
+}
+.c{color:#334155;} .g{color:var(--green);} .y{color:var(--amber);}
+.b{color:var(--blue);} .p{color:var(--purple);} .w{color:#e2e8f0;}
+.copy{
+  position:absolute;top:11px;right:11px;
+  padding:4px 11px;border-radius:7px;font-size:.68rem;font-weight:700;
+  background:rgba(0,180,255,.09);border:1px solid rgba(0,180,255,.18);
+  color:var(--blue);cursor:pointer;transition:.15s;user-select:none;
+}
+.copy:hover{background:rgba(0,180,255,.18);}
+.copy.copied{color:var(--green);background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.25);}
+
+/* ══ INFO GRID ══ */
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:28px;}
+.info-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  padding:20px;position:relative;overflow:hidden;transition:.2s;
+}
+.info-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--c,var(--blue));}
+.info-card:hover{border-color:var(--border-glow);transform:translateY(-2px);}
+.info-icon{font-size:1.7rem;margin-bottom:8px;}
+.info-val{font-size:1.15rem;font-weight:800;color:var(--c,var(--blue));font-family:monospace;}
+.info-lbl{font-size:.67rem;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:1.2px;}
+
+/* ══ FILE TREE ══ */
+.file-tree{
+  background:rgba(0,0,0,.6);border:1px solid var(--border);border-radius:14px;
+  padding:20px 24px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;
+  font-size:.79rem;line-height:2;
+}
+.ft-root{color:var(--blue);font-weight:800;font-size:.85rem;}
+.ft-dir{color:var(--cyan);font-weight:700;}
+.ft-file{color:var(--dim);}
+.ft-new{color:var(--green);font-weight:700;}
+.ft-fixed{color:var(--amber);font-weight:700;}
+.ft-note{color:#334155;font-size:.7rem;margin-left:4px;}
+
+/* ══ FEATURE GRID ══ */
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:14px;}
+.feat{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  padding:20px;text-align:center;transition:.2s;position:relative;overflow:hidden;
+}
+.feat::before{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--c,var(--blue)),transparent);}
+.feat:hover{border-color:var(--border-glow);transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,.4);}
+.feat-icon{font-size:2rem;margin-bottom:10px;}
+.feat-title{font-size:.84rem;font-weight:700;margin-bottom:5px;}
+.feat-desc{font-size:.74rem;color:var(--muted);line-height:1.55;}
+
+/* ══ ALERT ══ */
+.alert{
+  padding:14px 18px;border-radius:12px;font-size:.84rem;
+  margin-bottom:16px;display:flex;align-items:flex-start;gap:12px;border:1px solid;
+}
+.alert-warn{background:rgba(245,158,11,.08);color:#fcd34d;border-color:rgba(245,158,11,.22);}
+.alert-info{background:rgba(0,180,255,.07);color:#93c5fd;border-color:rgba(0,180,255,.18);}
+.alert-success{background:rgba(16,185,129,.08);color:#6ee7b7;border-color:rgba(16,185,129,.22);}
+.alert-purple{background:rgba(168,85,247,.07);color:#d8b4fe;border-color:rgba(168,85,247,.2);}
+
+/* ══ CREDS BOX ══ */
+.creds-box{
+  background:rgba(0,0,0,.5);border:1px solid rgba(0,180,255,.2);border-radius:16px;
+  padding:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:18px;
+}
+.cred-item .cl{font-size:.67rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:5px;}
+.cred-item .cv{font-family:monospace;font-size:.92rem;color:var(--blue);font-weight:700;word-break:break-all;}
+
+/* ══ DOCKER COMMANDS ══ */
+.cmd-group{display:flex;flex-direction:column;gap:12px;}
+.cmd-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:13px;
+  overflow:hidden;
+}
+.cmd-card-head{
+  padding:10px 18px;border-bottom:1px solid var(--border);
+  font-size:.78rem;font-weight:700;display:flex;align-items:center;gap:8px;
+}
+
+/* ══ TAG / BADGE ══ */
+.tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.67rem;font-weight:700;}
+.tag-new{background:rgba(16,185,129,.15);color:var(--green);}
+.tag-fix{background:rgba(245,158,11,.15);color:var(--amber);}
+.tag-hot{background:rgba(239,68,68,.12);color:var(--red);}
+.tag-blue{background:rgba(0,180,255,.1);color:var(--blue);}
+
+/* ══ FFMPEG MODE CARDS ══ */
+.ffmpeg-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;}
+.ffmpeg-card{
+  padding:16px;border-radius:13px;border:1px solid var(--border);
+  background:rgba(255,255,255,.03);text-align:center;
+}
+.ffmpeg-icon{font-size:1.6rem;margin-bottom:8px;}
+.ffmpeg-title{font-weight:700;font-size:.82rem;margin-bottom:4px;}
+.ffmpeg-desc{font-size:.72rem;color:var(--muted);line-height:1.5;}
+.ffmpeg-card.mode-off{border-color:rgba(16,185,129,.25);background:rgba(16,185,129,.04);}
+.ffmpeg-card.mode-on{border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.04);}
+.ffmpeg-card.mode-auto{border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.04);}
+
+/* ══ CHANGELOG TABLE ══ */
+.changelog{border-radius:14px;overflow:hidden;border:1px solid var(--border);}
+.cl-row{display:grid;grid-template-columns:80px 1fr 160px;border-bottom:1px solid var(--border);font-size:.82rem;}
+.cl-row:last-child{border-bottom:none;}
+.cl-row>div{padding:10px 14px;}
+.cl-head{background:rgba(0,180,255,.06);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+
+/* ══ FOOTER ══ */
+.site-footer{
+  position:relative;z-index:1;
+  text-align:center;padding:40px 24px 50px;
+  border-top:1px solid var(--border);
+  font-size:.78rem;color:var(--muted);
+}
+.credit-grad{
+  background:linear-gradient(90deg,var(--blue),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;font-weight:800;
+}
+.footer-links{display:flex;justify-content:center;gap:8px;margin-top:14px;flex-wrap:wrap;}
+.footer-link{color:var(--muted);text-decoration:none;font-size:.76rem;padding:4px 10px;border-radius:7px;transition:.15s;}
+.footer-link:hover{color:var(--blue);background:rgba(0,180,255,.07);}
+
+/* ══ SCROLLBAR ══ */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:rgba(99,102,241,.38);border-radius:3px;}
+
+/* ══ RESPONSIVE ══ */
+@media(max-width:700px){
+  .ffmpeg-grid{grid-template-columns:1fr;}
+  .hero-title{font-size:2rem;}
+  .navbar{padding:0 16px;}
+  .container{padding:0 16px 60px;}
+  .step{flex-direction:column;gap:12px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ NAVBAR ══ -->
+<nav class="navbar">
+  <div class="nav-logo">⚡ XtreamTV IPTV OS</div>
+  <div class="nav-links">
+    <a href="#quickstart" class="nav-link">Quick Start</a>
+    <a href="#files"      class="nav-link">Files</a>
+    <a href="#ffmpeg"     class="nav-link">FFmpeg</a>
+    <a href="#commands"   class="nav-link">Commands</a>
+    <a href="#changelog"  class="nav-link">Changelog</a>
+    <span class="nav-badge">v2.0.0</span>
+  </div>
+</nav>
+
+<!-- ══ HERO ══ -->
+<section class="hero">
+  <div class="hero-eyebrow">⚡ Kobir Shah &nbsp;·&nbsp; XtreamTV IPTV OS &nbsp;·&nbsp; v2.0.0</div>
+  <h1 class="hero-title">
+    <div class="line1">Deploy Your IPTV OS</div>
+    <div class="line2">in 60 Seconds Flat</div>
+  </h1>
+  <p class="hero-sub">
+    Production-grade IPTV proxy panel — Docker-powered, Cloudflare Tunnel ready,
+    FFmpeg restreaming, EPG integration, Xtream Codes API compatible.
+    One command. Zero config.
+  </p>
+  <div class="hero-actions">
+    <a href="#quickstart" class="btn btn-primary">🚀 Quick Start</a>
+    <a href="#ffmpeg"     class="btn btn-purple">⚡ FFmpeg Guide</a>
+    <a href="#changelog"  class="btn btn-ghost">📋 What's New</a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat-pill"><div class="dot" style="background:var(--green);box-shadow:0 0 6px var(--green)"></div>37 PHP Files</div>
+    <div class="stat-pill"><div class="dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue)"></div>9,200+ Lines of Code</div>
+    <div class="stat-pill"><div class="dot" style="background:var(--purple);box-shadow:0 0 6px var(--purple)"></div>3 Docker Containers</div>
+    <div class="stat-pill"><div class="dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber)"></div>130+ Kobir Shah Credits</div>
+    <div class="stat-pill"><div class="dot" style="background:var(--red);box-shadow:0 0 6px var(--red)"></div>10 Bugs Fixed</div>
+  </div>
+</section>
+
+<div class="container">
+
+  <!-- ══ QUICK START ══ -->
+  <section class="section" id="quickstart">
+    <div class="section-eyebrow">Phase 3 · Deployment</div>
+    <h2 class="section-title">🚀 One-Command Deploy</h2>
+    <p class="section-sub">Three steps from zero to a live IPTV OS at <strong style="color:var(--blue)">http://localhost:8080</strong></p>
+
+    <div class="info-grid">
+      <div class="info-card" style="--c:var(--blue)"><div class="info-icon">🌐</div><div class="info-val">localhost:8080</div><div class="info-lbl">Panel URL</div></div>
+      <div class="info-card" style="--c:var(--green)"><div class="info-icon">⚡</div><div class="info-val">&lt; 60s</div><div class="info-lbl">Time to Live</div></div>
+      <div class="info-card" style="--c:var(--purple)"><div class="info-icon">🐳</div><div class="info-val">Docker</div><div class="info-lbl">Runtime</div></div>
+      <div class="info-card" style="--c:var(--cyan)"><div class="info-icon">🐘</div><div class="info-val">PHP 8.2</div><div class="info-lbl">Engine</div></div>
+      <div class="info-card" style="--c:var(--amber)"><div class="info-icon">🌍</div><div class="info-val">Cloudflare</div><div class="info-lbl">Tunnel / CDN</div></div>
+    </div>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Install Docker Desktop</div>
+          <div class="step-desc">Download Docker Desktop for Windows, Mac, or Linux. It includes <code>docker</code> and <code>docker compose</code>. Verify installation:</div>
+          <div class="code-label">Terminal</div>
+          <div class="code-block">
+            <pre><span class="g">docker</span> <span class="y">--version</span>       <span class="c"># Docker version 25.x or higher</span>
+<span class="g">docker compose</span> <span class="y">version</span>  <span class="c"># Docker Compose version v2.x</span></pre>
+            <button class="copy" onclick="copyCode(this,'docker --version\ndocker compose version')">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Set Up Your Project Folder</div>
+          <div class="step-desc">Place all files exactly as shown. Then copy <code>.env.example</code> → <code>.env</code> and add your Cloudflare token.</div>
+          <div class="code-label">Folder Structure</div>
+          <div class="file-tree">
+<span class="ft-root">📁 my-iptv-os/</span>                  <span class="ft-note">← your project root</span>
+├── <span class="ft-new">docker-compose.yml</span>             <span class="ft-note">← orchestrates 3 containers</span>
+├── <span class="ft-new">Dockerfile</span>                     <span class="ft-note">← builds PHP 8.2 + Apache image</span>
+├── <span class="ft-new">.env</span>                           <span class="ft-note">← 🔑 your secrets (gitignored!)</span>
+├── <span class="ft-new">.env.example</span>                   <span class="ft-note">← safe template to commit</span>
+├── <span class="ft-new">.gitignore</span>                     <span class="ft-note">← protects .env from git</span>
+├── <span class="ft-new">.dockerignore</span>                  <span class="ft-note">← keeps image lean</span>
+├── <span class="ft-dir">📁 docker/</span>
+│   ├── <span class="ft-dir">📁 apache/</span>
+│   │   └── <span class="ft-new">xtreamtv.conf</span>          <span class="ft-note">← VHost + security headers</span>
+│   ├── <span class="ft-dir">📁 php/</span>
+│   │   └── <span class="ft-new">custom.ini</span>             <span class="ft-note">← PHP runtime tuning</span>
+│   └── <span class="ft-new">entrypoint.sh</span>              <span class="ft-note">← boot script + auto-install</span>
+└── <span class="ft-dir">📁 xtreamtv/</span>                   <span class="ft-note">← all PHP application files</span>
+    ├── <span class="ft-file">config.php</span>                 <span class="ft-note">  bootstrap + constants</span>
+    ├── <span class="ft-file">auth.php</span>                   <span class="ft-note">  Auth class — session/token</span>
+    ├── <span class="ft-file">engine.php</span>                 <span class="ft-note">  M3UEngine — parser + proxy</span>
+    ├── <span class="ft-file">epg.php</span>                    <span class="ft-note">  EPGEngine — XMLTV parser</span>
+    ├── <span class="ft-file">epg_api.php</span>                <span class="ft-note">  EPG REST endpoint</span>
+    ├── <span class="ft-file">api.php</span>                    <span class="ft-note">  Xtream Codes API emulation</span>
+    ├── <span class="ft-file">proxy.php</span>                  <span class="ft-note">  universal stream proxy</span>
+    ├── <span class="ft-file">index.php</span>                  <span class="ft-note">  dashboard</span>
+    ├── <span class="ft-file">login.php</span>                  <span class="ft-note">  auth page</span>
+    ├── <span class="ft-file">player.php</span>                 <span class="ft-note">  cinematic HLS player</span>
+    ├── <span class="ft-file">playlists.php</span>              <span class="ft-note">  M3U manager</span>
+    ├── <span class="ft-file">channels.php</span>               <span class="ft-note">  channel browser</span>
+    ├── <span class="ft-file">users.php</span>                  <span class="ft-note">  user management (admin)</span>
+    ├── <span class="ft-fixed">settings.php</span>               <span class="ft-note">  ✨ FFmpeg admin panel (NEW)</span>
+    ├── <span class="ft-file">logs.php / install.php</span>     <span class="ft-note">  logs + one-shot installer</span>
+    ├── <span class="ft-file">.htaccess</span>                  <span class="ft-note">  Apache security + routing</span>
+    └── <span class="ft-dir">📁 src/</span>
+        ├── <span class="ft-file">Database.php</span>            <span class="ft-note">  SQLite PDO + migrations</span>
+        ├── <span class="ft-file">Security.php</span>            <span class="ft-note">  CSRF/XSS/SSRF protection</span>
+        ├── <span class="ft-fixed">StreamPassthru.php</span>      <span class="ft-note">  ✨ fpassthru() engine (NEW)</span>
+        ├── <span class="ft-fixed">FFmpegProxy.php</span>         <span class="ft-note">  ✨ FFmpeg restream (NEW)</span>
+        └── <span class="ft-file">View.php / UserManager.php / XtreamAPI.php / ...</span>
+          </div>
+          <div class="code-label">Copy env template</div>
+          <div class="code-block">
+            <pre><span class="g">cp</span> .env.example .env
+<span class="c"># Then edit .env and paste your Cloudflare tunnel token:</span>
+<span class="b">CLOUDFLARE_TUNNEL_TOKEN</span>=<span class="y">your_token_here</span></pre>
+            <button class="copy" onclick="copyCode(this,'cp .env.example .env')">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Launch — One Command</div>
+          <div class="step-desc">Run this in your project folder. First boot takes ~60s to install PHP extensions. Subsequent starts are instant.</div>
+          <div class="code-label">Terminal — first run</div>
+          <div class="code-block">
+            <pre><span class="g">docker compose up</span> <span class="y">-d --build</span>         <span class="c"># build image + start all 3 containers</span>
+<span class="g">docker compose logs</span> <span class="y">-f</span>                <span class="c"># watch live boot logs</span></pre>
+            <button class="copy" onclick="copyCode(this,'docker compose up -d --build')">Copy</button>
+          </div>
+          <div class="alert alert-success" style="margin-top:14px">
+            ✅ Open <strong>http://localhost:8080/xtreamtv/</strong> — your IPTV OS is live!
+          </div>
+          <div class="alert alert-info">
+            🌍 Cloudflare Tunnel auto-assigns a public HTTPS URL. Check: <code>docker compose logs cloudflared</code>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══ CREDENTIALS ══ -->
+  <section class="section">
+    <div class="section-eyebrow">First Login</div>
+    <h2 class="section-title">🔐 Default Credentials</h2>
+    <p class="section-sub">Change these immediately after first login via the Users panel.</p>
+    <div class="creds-box">
+      <div class="cred-item"><div class="cl">🌐 Panel URL</div><div class="cv">http://localhost:8080/xtreamtv/</div></div>
+      <div class="cred-item"><div class="cl">👤 Username</div><div class="cv">admin</div></div>
+      <div class="cred-item"><div class="cl">🔑 Password</div><div class="cv">admin123</div></div>
+      <div class="cred-item"><div class="cl">🔌 Xtream API</div><div class="cv">localhost:8080/xtreamtv/api.php</div></div>
+      <div class="cred-item"><div class="cl">⚙️ Settings Panel</div><div class="cv">localhost:8080/xtreamtv/settings.php</div></div>
+      <div class="cred-item"><div class="cl">📺 Player</div><div class="cv">localhost:8080/xtreamtv/player.php</div></div>
+    </div>
+  </section>
+
+  <!-- ══ FFMPEG ══ -->
+  <section class="section" id="ffmpeg">
+    <div class="section-eyebrow">Pro-Tip #2 · Admin Controlled</div>
+    <h2 class="section-title">⚡ FFmpeg Restream — 3 Modes</h2>
+    <p class="section-sub">
+      Controlled from <strong style="color:var(--blue)">Settings → FFmpeg Global Mode</strong>.
+      Default is <strong style="color:var(--green)">OFF</strong> for maximum performance.
+      Override per-channel or globally.
+    </p>
+
+    <div class="ffmpeg-grid">
+      <div class="ffmpeg-card mode-off">
+        <div class="ffmpeg-icon">🟢</div>
+        <div class="ffmpeg-title" style="color:var(--green)">OFF — Default</div>
+        <div class="ffmpeg-desc"><code>fpassthru()</code> pipe. Zero CPU overhead. Kernel-level sendfile. Perfect for 4K. Best for 99% of streams.</div>
+      </div>
+      <div class="ffmpeg-card mode-on">
+        <div class="ffmpeg-icon">🔴</div>
+        <div class="ffmpeg-title" style="color:var(--red)">ON — FFmpeg Always</div>
+        <div class="ffmpeg-desc">Every stream goes through FFmpeg. Fixes broken timestamps, re-muxes to TS, bypasses geo/CDN blocks.</div>
+      </div>
+      <div class="ffmpeg-card mode-auto">
+        <div class="ffmpeg-icon">🟡</div>
+        <div class="ffmpeg-title" style="color:var(--amber)">AUTO — Smart Fallback</div>
+        <div class="ffmpeg-desc">Probes upstream first. Uses passthru if reachable. Falls back to FFmpeg automatically if stream fails.</div>
+      </div>
+    </div>
+
+    <div class="glass">
+      <div style="padding:18px 22px;border-bottom:1px solid var(--border);font-weight:700;font-size:.9rem">⚙️ Control Priority Chain</div>
+      <div style="padding:20px 22px">
+        <div class="code-label">Priority (highest → lowest)</div>
+        <div class="code-block">
+          <pre><span class="c"># 1. URL override — for testing only, no DB write</span>
+<span class="b">proxy.php</span>?url=BASE64&t=TOKEN&<span class="y">mode=off</span>|<span class="y">on</span>|<span class="y">auto</span>
+
+<span class="c"># 2. Per-channel override — set from Settings → Channel Table</span>
+<span class="b">channels.ffmpeg_mode</span> = <span class="y">inherit</span>|<span class="y">off</span>|<span class="y">on</span>|<span class="y">auto</span>
+
+<span class="c"># 3. Global setting — set from Settings panel</span>
+<span class="b">settings.ffmpeg_mode</span> = <span class="y">off</span>  <span class="c">(default)</span></pre>
+        </div>
+        <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div class="code-label">Quality Presets</div>
+            <div class="code-block">
+              <pre><span class="y">passthru</span> <span class="c">→ copy codecs, remux only (fastest, 4K safe)</span>
+<span class="y">hd</span>       <span class="c">→ scale 1280×720, H264 CRF23 + AAC 128k</span>
+<span class="y">sd</span>       <span class="c">→ scale 854×480, H264 CRF28 + AAC 96k</span></pre>
+            </div>
+          </div>
+          <div>
+            <div class="code-label">FFmpeg Flags (auto-applied)</div>
+            <div class="code-block">
+              <pre><span class="g">-reconnect 1</span>           <span class="c">stream auto-reconnect</span>
+<span class="g">-reconnect_streamed 1</span>  <span class="c">reconnect on error</span>
+<span class="g">-user_agent</span> <span class="y">SmartTV</span>    <span class="c">geo-block bypass UA</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ IPTV APPS ══ -->
+  <section class="section">
+    <div class="section-eyebrow">Phase 4 · Xtream API</div>
+    <h2 class="section-title">📱 Connect Your IPTV App</h2>
+    <p class="section-sub">Compatible with TiviMate, IPTV Smarters Pro, GSE Smart IPTV, Perfect Player, Kodi PVR, VLC.</p>
+    <div class="glass">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+        <div style="padding:22px 26px;border-right:1px solid var(--border)">
+          <div style="font-weight:700;font-size:.9rem;margin-bottom:14px">📱 Xtream Codes Setup</div>
+          <div style="display:flex;flex-direction:column;gap:10px;font-size:.84rem">
+            <div><span style="color:var(--muted);font-size:.72rem;display:block;margin-bottom:2px;text-transform:uppercase;letter-spacing:1px">Connection Type</span><strong style="color:var(--blue)">Xtream Codes API</strong></div>
+            <div><span style="color:var(--muted);font-size:.72rem;display:block;margin-bottom:2px;text-transform:uppercase;letter-spacing:1px">Server URL</span><code style="color:var(--cyan)">http://localhost:8080/xtreamtv</code></div>
+            <div><span style="color:var(--muted);font-size:.72rem;display:block;margin-bottom:2px;text-transform:uppercase;letter-spacing:1px">Username</span><code style="color:var(--purple)">admin</code></div>
+            <div><span style="color:var(--muted);font-size:.72rem;display:block;margin-bottom:2px;text-transform:uppercase;letter-spacing:1px">Password</span><code style="color:var(--purple)">API Token (from panel)</code></div>
+          </div>
+        </div>
+        <div style="padding:22px 26px">
+          <div style="font-weight:700;font-size:.9rem;margin-bottom:14px">📡 M3U / VLC / Kodi</div>
+          <div class="code-label">M3U All Channels</div>
+          <div class="code-block">
+            <pre style="font-size:.75rem"><span class="b">http://localhost:8080/xtreamtv/</span>
+<span class="b">proxy.php</span>?action=<span class="y">m3u</span>&t=<span class="g">YOUR_TOKEN</span></pre>
+          </div>
+          <div class="code-label" style="margin-top:10px">Direct Stream URL</div>
+          <div class="code-block">
+            <pre style="font-size:.75rem"><span class="b">proxy.php</span>?id=<span class="y">CHANNEL_ID</span>&t=<span class="g">TOKEN</span>
+<span class="c"># FFmpeg mode:</span>
+<span class="b">proxy.php</span>?id=<span class="y">1</span>&t=<span class="g">TOKEN</span>&mode=<span class="y">on</span></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ DOCKER COMMANDS ══ -->
+  <section class="section" id="commands">
+    <div class="section-eyebrow">Docker · Day-to-Day</div>
+    <h2 class="section-title">🐳 Management Commands</h2>
+    <p class="section-sub">Every command you'll ever need to operate your IPTV OS.</p>
+
+    <div class="cmd-group">
+
+      <div class="cmd-card">
+        <div class="cmd-card-head" style="color:var(--green)">▶ Start / Build</div>
+        <div class="code-block">
+          <pre><span class="g">docker compose up</span> <span class="y">-d --build</span>       <span class="c"># rebuild image + start (after code change)</span>
+<span class="g">docker compose up</span> <span class="y">-d</span>               <span class="c"># start existing containers</span>
+<span class="g">docker compose restart</span> iptv-os     <span class="c"># restart PHP app only</span>
+<span class="g">docker compose restart</span> cloudflared <span class="c"># restart tunnel only</span></pre>
+          <button class="copy" onclick="copyCode(this,'docker compose up -d --build')">Copy</button>
+        </div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-card-head" style="color:var(--red)">⏹ Stop / Clean</div>
+        <div class="code-block">
+          <pre><span class="g">docker compose down</span>               <span class="c"># stop all (data preserved in volumes)</span>
+<span class="g">docker compose down</span> <span class="y">-v</span>             <span class="c"># ⚠️ stop + DELETE volumes (wipes DB!)</span>
+<span class="g">docker compose down</span> <span class="y">--rmi all</span>      <span class="c"># stop + delete built images</span></pre>
+          <button class="copy" onclick="copyCode(this,'docker compose down')">Copy</button>
+        </div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-card-head" style="color:var(--blue)">🔍 Debug / Monitor</div>
+        <div class="code-block">
+          <pre><span class="g">docker compose logs</span> <span class="y">-f</span>            <span class="c"># live logs all containers</span>
+<span class="g">docker compose logs</span> <span class="y">-f</span> cloudflared <span class="c"># cloudflare tunnel status</span>
+<span class="g">docker compose logs</span> <span class="y">-f</span> iptv-os    <span class="c"># PHP app logs</span>
+<span class="g">docker exec</span> <span class="y">-it</span> kobir_iptv_os bash <span class="c"># shell into PHP container</span>
+<span class="g">docker stats</span>                       <span class="c"># live CPU / RAM usage</span>
+<span class="g">docker compose ps</span>                  <span class="c"># status + health check state</span></pre>
+          <button class="copy" onclick="copyCode(this,'docker compose logs -f')">Copy</button>
+        </div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-card-head" style="color:var(--purple)">💾 Backup & Restore</div>
+        <div class="code-block">
+          <pre><span class="c"># Backup SQLite database</span>
+<span class="g">docker cp</span> kobir_iptv_os:/var/www/html/xtreamtv/storage/database.sqlite \
+  ./backup_<span class="y">$(date +%Y%m%d_%H%M)</span>.sqlite
+
+<span class="c"># Restore from backup</span>
+<span class="g">docker cp</span> backup_20250527.sqlite \
+  kobir_iptv_os:/var/www/html/xtreamtv/storage/database.sqlite
+
+<span class="c"># Dump as SQL</span>
+<span class="g">docker compose exec</span> iptv-os sqlite3 \
+  /var/www/html/xtreamtv/storage/database.sqlite .dump <span class="y">&gt; backup.sql</span></pre>
+          <button class="copy" onclick="copyCode(this,'docker cp kobir_iptv_os:/var/www/html/xtreamtv/storage/database.sqlite ./backup_$(date +%Y%m%d).sqlite')">Copy</button>
+        </div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-card-head" style="color:var(--amber)">🔄 Rotate Cloudflare Token</div>
+        <div class="code-block">
+          <pre><span class="c"># 1. Get new token from Cloudflare Zero Trust dashboard</span>
+<span class="c"># 2. Update .env file:</span>
+<span class="b">CLOUDFLARE_TUNNEL_TOKEN</span>=<span class="y">new_token_here</span>
+
+<span class="c"># 3. Restart only the tunnel container (no rebuild needed)</span>
+<span class="g">docker compose restart</span> cloudflared</pre>
+          <button class="copy" onclick="copyCode(this,'docker compose restart cloudflared')">Copy</button>
+        </div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-card-head" style="color:var(--cyan)">📡 Local Network Access (Smart TV / Phone)</div>
+        <div class="code-block">
+          <pre><span class="c"># Find your machine's local IP</span>
+<span class="g">ipconfig</span>               <span class="c"># Windows → IPv4 Address</span>
+<span class="g">ifconfig</span> | grep inet   <span class="c"># Mac / Linux</span>
+<span class="g">hostname</span> <span class="y">-I</span>            <span class="c"># Linux shortcut</span>
+
+<span class="c"># Then use in your IPTV app instead of localhost:</span>
+<span class="b">http://192.168.x.x:8080/xtreamtv/</span></pre>
+          <button class="copy" onclick="copyCode(this,'ipconfig')">Copy</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══ FEATURES ══ -->
+  <section class="section" id="features">
+    <div class="section-eyebrow">Full Stack</div>
+    <h2 class="section-title">✦ Complete Feature Stack</h2>
+    <p class="section-sub">Every component of an enterprise IPTV OS. Built entirely by <strong style="color:var(--blue)">Kobir Shah</strong>.</p>
+    <div class="feat-grid">
+      <div class="feat" style="--c:var(--green)"><div class="feat-icon">🟢</div><div class="feat-title">fpassthru() Engine <span class="tag tag-new">NEW</span></div><div class="feat-desc">Kernel-level stream pipe. Zero PHP copy overhead. Perfect for 4K live streams.</div></div>
+      <div class="feat" style="--c:var(--red)"><div class="feat-icon">⚡</div><div class="feat-title">FFmpeg Restream <span class="tag tag-new">NEW</span></div><div class="feat-desc">3 modes: OFF/ON/AUTO. Quality presets. Per-channel override. Geo-block bypass.</div></div>
+      <div class="feat" style="--c:var(--amber)"><div class="feat-icon">⚙️</div><div class="feat-title">Admin Settings Panel <span class="tag tag-new">NEW</span></div><div class="feat-desc">Toggle FFmpeg globally or per-channel. Quality presets. Site config. All from UI.</div></div>
+      <div class="feat" style="--c:var(--blue)"><div class="feat-icon">🐳</div><div class="feat-title">Docker Native</div><div class="feat-desc">PHP 8.2 + Apache + Redis + Cloudflared. One command deploy.</div></div>
+      <div class="feat" style="--c:var(--purple)"><div class="feat-icon">🌍</div><div class="feat-title">Cloudflare Tunnel</div><div class="feat-desc">Token from .env. Auto HTTPS. No port forwarding. Public URL in seconds.</div></div>
+      <div class="feat" style="--c:var(--cyan)"><div class="feat-icon">📡</div><div class="feat-title">M3U Parser</div><div class="feat-desc">cURL write-callback streaming. Handles 500MB+ playlists with &lt;8MB RAM.</div></div>
+      <div class="feat" style="--c:var(--green)"><div class="feat-icon">🔌</div><div class="feat-title">Xtream Codes API <span class="tag tag-hot">HOT</span></div><div class="feat-desc">Full emulation. X-Developer header on every response. TiviMate ready.</div></div>
+      <div class="feat" style="--c:var(--amber)"><div class="feat-icon">📅</div><div class="feat-title">EPG / XMLTV</div><div class="feat-desc">XMLReader stream parser. Current/next program. Progress bar. Batch API.</div></div>
+      <div class="feat" style="--c:var(--blue)"><div class="feat-icon">📺</div><div class="feat-title">Cinematic Player</div><div class="feat-desc">HLS.js + PiP + auto-reconnect + EPG overlay + channel SPA switching.</div></div>
+      <div class="feat" style="--c:var(--red)"><div class="feat-icon">🛡️</div><div class="feat-title">Security Stack</div><div class="feat-desc">CSRF · XSS · SSRF · Argon2ID · Rate limiting · Triple SQLite lockdown.</div></div>
+      <div class="feat" style="--c:var(--purple)"><div class="feat-icon">👥</div><div class="feat-title">Multi-User</div><div class="feat-desc">Admin + users. Stream limits. Token auth. Account expiry. Session tracking.</div></div>
+      <div class="feat" style="--c:var(--cyan)"><div class="feat-icon">🗄️</div><div class="feat-title">SQLite + WAL</div><div class="feat-desc">Zero-config DB. WAL mode. 64MB cache. Auto-migration. Named Docker volume.</div></div>
+    </div>
+  </section>
+
+  <!-- ══ CHANGELOG ══ -->
+  <section class="section" id="changelog">
+    <div class="section-eyebrow">Release Notes</div>
+    <h2 class="section-title">📋 What's New in v2.0.0</h2>
+    <p class="section-sub">All changes, bug fixes, and new features since v1.0.0.</p>
+
+    <div class="alert alert-purple" style="margin-bottom:20px">
+      <span style="font-size:1.1rem">🔧</span>
+      <div><strong>10 bugs were found and fixed</strong> during the Phase 3 code audit. Every fix is documented below.</div>
+    </div>
+
+    <div class="changelog">
+      <div class="cl-row cl-head">
+        <div>Type</div><div>Description</div><div>File(s)</div>
+      </div>
+
+      <div class="cl-row">
+        <div><span class="tag tag-new">NEW</span></div>
+        <div><strong>StreamPassthru.php</strong> — fpassthru() engine replaces echo-based chunking for zero-overhead 4K streaming</div>
+        <div style="color:var(--muted);font-size:.75rem">src/StreamPassthru.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-new">NEW</span></div>
+        <div><strong>FFmpegProxy.php</strong> — Full FFmpeg restream engine with 3 modes, 3 quality presets, proc_open pipe</div>
+        <div style="color:var(--muted);font-size:.75rem">src/FFmpegProxy.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-new">NEW</span></div>
+        <div><strong>settings.php</strong> — Admin panel: global FFmpeg toggle, quality preset, per-channel override table</div>
+        <div style="color:var(--muted);font-size:.75rem">settings.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-new">NEW</span></div>
+        <div><strong>Database::setting() / setSetting()</strong> helper methods with UPSERT support</div>
+        <div style="color:var(--muted);font-size:.75rem">src/Database.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-fix">FIX</span></div>
+        <div><strong>DEVELOPER_CREDIT constant missing</strong> — was used across 51 files but never defined in config.php</div>
+        <div style="color:var(--muted);font-size:.75rem">config.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-fix">FIX</span></div>
+        <div><strong>APP_VERSION mismatch</strong> — config had '1.0.0', Docker labels had '2.0.0'. Unified to '2.0.0'</div>
+        <div style="color:var(--muted);font-size:.75rem">config.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-fix">FIX</span></div>
+        <div><strong>Fatal: self::formatProgram()</strong> called in procedural file (no class context) → changed to formatProgram()</div>
+        <div style="color:var(--muted);font-size:.75rem">epg_api.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-fix">FIX</span></div>
+        <div><strong>Fatal: formatProgram() undefined</strong> — function called before its definition. Hoisted to top of file</div>
+        <div style="color:var(--muted);font-size:.75rem">epg_api.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-fix">FIX</span></div>
+        <div><strong>Fatal: StreamPassthru missing require_once</strong> — class called but file never included in proxy.php</div>
+        <div style="color:var(--muted);font-size:.75rem">proxy.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-fix">FIX</span></div>
+        <div><strong>FFmpeg mode hardcoded</strong> — proxy.php ignored DB settings. Now reads Database::setting('ffmpeg_mode')</div>
+        <div style="color:var(--muted);font-size:.75rem">proxy.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-fix">FIX</span></div>
+        <div><strong>channels.ffmpeg_mode column missing</strong> — added to schema + ALTER TABLE migration for v1→v2 upgrades</div>
+        <div style="color:var(--muted);font-size:.75rem">src/Database.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-fix">FIX</span></div>
+        <div><strong>Settings nav item missing</strong> from sidebar — added ⚙️ Settings link (admin-only) to View.php nav</div>
+        <div style="color:var(--muted);font-size:.75rem">src/View.php</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-fix">FIX</span></div>
+        <div><strong>Dockerfile disconnected</strong> — docker-compose used bare image instead of build: context. Now properly wired</div>
+        <div style="color:var(--muted);font-size:.75rem">docker-compose.yml Dockerfile</div>
+      </div>
+      <div class="cl-row">
+        <div><span class="tag tag-fix">FIX</span></div>
+        <div><strong>Triple SQLite lockdown</strong> — .htaccess RewriteRule + FilesMatch + storage/.htaccess all deny database.sqlite</div>
+        <div style="color:var(--muted);font-size:.75rem">.htaccess storage/.htaccess</div>
+      </div>
+      <div class="cl-row" style="border-bottom:none">
+        <div><span class="tag tag-blue">UPD</span></div>
+        <div><strong>Cloudflare tunnel token</strong> — moved from hardcoded docker-compose to .env with ${CLOUDFLARE_TUNNEL_TOKEN}</div>
+        <div style="color:var(--muted);font-size:.75rem">docker-compose.yml .env</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SECURITY ══ -->
+  <section class="section">
+    <div class="section-eyebrow">Before You Go Live</div>
+    <h2 class="section-title">🛡️ Security Checklist</h2>
+    <div class="alert alert-warn">
+      <span style="font-size:1.2rem">⚠️</span>
+      <div>
+        <strong>Production Security — Do These Before Exposing to the Internet</strong><br>
+        <span style="font-size:.82rem;line-height:1.9;display:block;margin-top:4px">
+          1. Change default admin password (admin123) immediately via Users panel.<br>
+          2. Delete or rename <code>install.php</code> after first setup.<br>
+          3. Keep <code>.env</code> in <code>.gitignore</code> — never commit your Cloudflare token.<br>
+          4. Enable firewall — only expose port 8080 to trusted IPs if not using Cloudflare Tunnel.<br>
+          5. Rotate your API tokens periodically from the Users panel.<br>
+          6. Check FFmpeg mode — leave OFF unless you need geo-block bypass.
+        </span>
+      </div>
+    </div>
+    <div class="alert alert-info">
+      <span style="font-size:1.2rem">💡</span>
+      <div>
+        <strong>Using Cloudflare Tunnel?</strong> You don't need to open any ports.
+        Cloudflare handles SSL/TLS termination and DDoS protection automatically.
+        Your IPTV OS is accessible via a <code>*.trycloudflare.com</code> URL or your own domain.
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ══ FOOTER ══ -->
+<footer class="site-footer">
+  <div style="font-size:2.2rem;margin-bottom:12px">⚡</div>
+  <div style="font-size:1rem;margin-bottom:6px">
+    © 2026 IPTV OS &nbsp;|&nbsp; Designed &amp; Developed by <span class="credit-grad" style="font-size:1.05rem">Kobir Shah</span>
+  </div>
+  <div style="color:var(--muted);font-size:.8rem;margin-bottom:4px">
+    XtreamTV v2.0.0 &nbsp;·&nbsp; Powered by Kobir Shah &nbsp;·&nbsp; All Rights Reserved
+  </div>
+  <div style="font-size:.75rem;color:#334155">
+    PHP 8.2 · SQLite WAL · Apache · Docker · Cloudflare Tunnel · FFmpeg · HLS.js
+  </div>
+  <div class="footer-links">
+    <a href="xtreamtv/login.php"    class="footer-link">⚡ Open Panel</a>
+    <a href="xtreamtv/settings.php" class="footer-link">⚙️ Settings</a>
+    <a href="xtreamtv/player.php"   class="footer-link">📺 Player</a>
+    <a href="xtreamtv/install.php"  class="footer-link">🔧 Installer</a>
+    <a href="xtreamtv/api.php"      class="footer-link">🔌 API</a>
+    <a href="xtreamtv/README.md"    class="footer-link">📄 README</a>
+  </div>
+</footer>
+
+<script>
+/* ── XtreamTV Deploy Guide v2.0 — Kobir Shah ── */
+console.log('%c⚡ XtreamTV IPTV OS v2.0.0', 'color:#00b4ff;font-size:15px;font-weight:900;letter-spacing:-0.5px;');
+console.log('%cDeveloped by Kobir Shah  ✦  Powered by Kobir Shah', 'color:#a855f7;font-size:11px;font-weight:600;');
+console.log('%c37 PHP files · 9,200+ lines · 130+ credit appearances', 'color:#64748b;font-size:10px;');
+console.log('%cDeploy: docker compose up -d --build', 'color:#10b981;font-size:10px;font-style:italic;');
+
+// ── Copy to clipboard ─────────────────────────────────────────
+function copyCode(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2000);
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
+  });
+}
+
+// ── Smooth entrance animations ────────────────────────────────
+const observer = new IntersectionObserver(entries => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => {
+        e.target.style.opacity  = '1';
+        e.target.style.transform = 'translateY(0) translateX(0)';
+      }, i * 40);
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.08 });
+
+document.querySelectorAll('.step, .feat, .info-card, .cmd-card, .ffmpeg-card, .cl-row:not(.cl-head)').forEach(el => {
+  el.style.opacity   = '0';
+  el.style.transform = 'translateY(16px)';
+  el.style.transition = 'opacity .45s ease, transform .45s ease';
+  observer.observe(el);
+});
+
+// ── Active nav link highlight on scroll ───────────────────────
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-link');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 80) current = s.id;
+  });
+  navLinks.forEach(l => {
+    l.style.color = l.getAttribute('href') === '#' + current ? 'var(--blue)' : '';
+    l.style.background = l.getAttribute('href') === '#' + current ? 'rgba(0,180,255,.08)' : '';
+  });
+}, { passive: true });
+</script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+# ============================================================
+#  XtreamTV IPTV OS — Apache Security Configuration
+# ============================================================
+#  Developer        : Kobir Shah
+#  DEVELOPER_CREDIT : Powered by Kobir Shah
+#
+#  Pro-Tip #3 Applied:
+#    - Block ALL direct HTTP access to database.sqlite
+#    - Block access to entire storage/ tree
+#    - Block .env, config files, source classes
+#    - Harden headers against XSS / clickjack / sniffing
+# ============================================================
+
+# Disable directory listings
+Options -Indexes -MultiViews
+ServerSignature Off
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /xtreamtv/
+
+    # ════════════════════════════════════════════════════════
+    #  PRO-TIP #3 — BLOCK ALL SENSITIVE FILE ACCESS
+    #  These rules fire BEFORE any routing rules below.
+    # ════════════════════════════════════════════════════════
+
+    # Block the SQLite database — most critical rule
+    RewriteRule ^storage/database\.sqlite$    - [F,L,NC]
+    RewriteRule ^storage/.*\.sqlite$          - [F,L,NC]
+    RewriteRule ^storage/.*\.db$              - [F,L,NC]
+
+    # Block the entire storage directory tree
+    RewriteRule ^storage/                     - [F,L,NC]
+
+    # Block PHP source class files (src/ directory)
+    RewriteRule ^src/                         - [F,L,NC]
+
+    # Block log files
+    RewriteRule ^.*\.log$                     - [F,L,NC]
+
+    # Block JSON cache files
+    RewriteRule ^storage/cache/.*\.json$      - [F,L,NC]
+
+    # Block EPG XML files from direct access
+    RewriteRule ^storage/epg/                 - [F,L,NC]
+
+    # ── Xtream Codes Stream URL Routing ─────────────────────
+    # /live/{username}/{password}/{id}.ts  → live_stream.php
+    # /live/{username}/{password}/{id}.m3u8 → live_stream.php
+    RewriteRule ^live/([^/]+)/([^/]+)/(\d+)\.(ts|m3u8)$ live_stream.php?username=$1&password=$2&id=$3&ext=$4 [L,QSA]
+
+    # /get.php alias → api.php (Xtream compatibility)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^get\.php$ api.php [L,QSA]
+
+    # /player_api.php alias → api.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^player_api\.php$ api.php [L,QSA]
+</IfModule>
+
+# ════════════════════════════════════════════════════════════
+#  PRO-TIP #3 — BLOCK SENSITIVE FILES BY EXTENSION / NAME
+#  Belt + suspenders approach: FilesMatch fires independently
+#  of mod_rewrite, so both layers must be bypassed to breach.
+# ════════════════════════════════════════════════════════════
+
+# Block SQLite / database files absolutely
+<FilesMatch "\.(sqlite|sqlite3|db|db3)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block PHP config + database class files
+<FilesMatch "^(config|Database|Security|auth)\.(php)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block environment and secret files
+<FilesMatch "(\.env|\.env\.example|composer\.(json|lock)|package\.json|\.gitignore)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block backup / dump files
+<FilesMatch "\.(bak|sql|dump|gz|tar|zip|log|ini|conf|sh)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block hidden files (.git, .htpasswd, etc.)
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ════════════════════════════════════════════════════════════
+#  SECURITY HEADERS
+#  Injected on every response by Apache (not PHP).
+# ════════════════════════════════════════════════════════════
+<IfModule mod_headers.c>
+    # Remove server fingerprint
+    Header unset Server
+    Header always unset X-Powered-By
+    Header always set X-Powered-By "XtreamTV by Kobir Shah"
+
+    # Clickjacking protection
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # MIME sniffing protection
+    Header always set X-Content-Type-Options "nosniff"
+
+    # XSS protection (legacy browsers)
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # Referrer policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Content Security Policy
+    Header always set Content-Security-Policy \
+        "default-src 'self'; \
+         script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; \
+         style-src 'self' 'unsafe-inline'; \
+         img-src * data: blob:; \
+         media-src * blob:; \
+         connect-src *; \
+         frame-ancestors 'self';"
+
+    # Developer credit header on every response
+    Header always set X-Developer "Kobir Shah"
+
+    # HSTS — enable only when serving HTTPS
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+    # Permissions policy
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
+
+# ════════════════════════════════════════════════════════════
+#  PERFORMANCE — Compression + Caching
+# ════════════════════════════════════════════════════════════
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css
+    AddOutputFilterByType DEFLATE application/json application/javascript
+    AddOutputFilterByType DEFLATE application/x-mpegurl text/xml
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    # Static assets — cache 7 days
+    ExpiresByType image/jpeg         "access plus 7 days"
+    ExpiresByType image/png          "access plus 7 days"
+    ExpiresByType image/svg+xml      "access plus 7 days"
+    ExpiresByType text/css           "access plus 1 day"
+    ExpiresByType application/javascript "access plus 1 day"
+    # API + streams — never cache
+    ExpiresByType application/json   "access plus 0 seconds"
+    ExpiresByType video/MP2T         "access plus 0 seconds"
+    ExpiresByType application/x-mpegurl "access plus 0 seconds"
+</IfModule>
+
+# ════════════════════════════════════════════════════════════
+#  PHP RUNTIME SETTINGS (Apache mod_php)
+# ════════════════════════════════════════════════════════════
+<IfModule mod_php.c>
+    php_flag  display_errors      off
+    php_flag  log_errors          on
+    php_value upload_max_filesize 200M
+    php_value post_max_size       210M
+    php_value max_execution_time  300
+    php_value memory_limit        512M
+</IfModule>

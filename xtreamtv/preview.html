@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XtreamTV — IPTV Proxy OS | by Kobir Shah</title>
+<style>
+/* ══════════════════════════════════════════════════════════
+   XTREAMTV PREVIEW — Full UI Mockup
+   Developer: Kobir Shah
+══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:         #050508;
+  --bg-surface: #0a0a14;
+  --bg-card:    rgba(12,12,26,0.92);
+  --blue:       #00b4ff;
+  --purple:     #a855f7;
+  --cyan:       #06b6d4;
+  --green:      #10b981;
+  --red:        #ef4444;
+  --amber:      #f59e0b;
+  --text:       #e2e8f0;
+  --muted:      #64748b;
+  --dim:        #94a3b8;
+  --border:     rgba(99,102,241,0.14);
+  --glow-blue:  rgba(0,180,255,0.12);
+  --nav-w:      230px;
+}
+html, body { height: 100%; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ─── Animated BG ─── */
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(rgba(0,180,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,180,255,0.025) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 70% 60% at 15% 10%, rgba(168,85,247,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 70% at 85% 85%, rgba(0,180,255,0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(6,182,212,0.03) 0%, transparent 60%);
+}
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  position: relative; z-index: 10;
+  width: var(--nav-w); height: 100vh;
+  background: rgba(6,6,16,0.97);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  flex-shrink: 0;
+  box-shadow: 4px 0 40px rgba(0,0,0,0.6);
+}
+.sidebar-top {
+  padding: 22px 18px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.logo-sub { font-size: 0.65rem; color: var(--muted); letter-spacing: 2.5px; text-transform: uppercase; margin-top: 2px; }
+.nav { padding: 14px 10px; flex: 1; }
+.nav-sect { font-size: 0.62rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; padding: 8px 8px 4px; margin-top: 6px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 10px; margin-bottom: 2px;
+  color: var(--dim); font-size: 0.84rem; font-weight: 500; cursor: pointer;
+  transition: all 0.2s; position: relative;
+}
+.nav-item:hover { background: rgba(0,180,255,0.07); color: var(--text); transform: translateX(2px); }
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(0,180,255,0.18), rgba(168,85,247,0.07));
+  color: var(--blue); border-left: 3px solid var(--blue);
+  box-shadow: inset 0 0 20px rgba(0,180,255,0.06);
+}
+.nav-icon { font-size: 1rem; width: 18px; text-align: center; }
+.sidebar-user {
+  padding: 14px 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.8rem; flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(0,180,255,0.3);
+}
+.u-name { font-size: 0.82rem; font-weight: 600; }
+.u-role { font-size: 0.68rem; color: var(--muted); }
+.btn-out {
+  margin-left: auto; padding: 5px 10px; border-radius: 8px;
+  background: rgba(239,68,68,0.1); color: var(--red);
+  border: 1px solid rgba(239,68,68,0.2); font-size: 0.72rem; cursor: pointer;
+}
+
+/* ─── MAIN ─── */
+.main { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; position: relative; z-index: 1; }
+.topbar {
+  height: 56px; background: rgba(5,5,8,0.92); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; padding: 0 28px;
+  backdrop-filter: blur(20px); flex-shrink: 0;
+}
+.page-title { font-size: 1rem; font-weight: 700; }
+.topbar-r { display: flex; align-items: center; gap: 12px; }
+.badge { padding: 3px 10px; border-radius: 20px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+.badge-admin { background: rgba(168,85,247,0.15); color: var(--purple); border: 1px solid rgba(168,85,247,0.3); }
+.content { padding: 26px 28px; overflow-y: auto; flex: 1; }
+
+/* ─── STAT CARDS ─── */
+.stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 24px; }
+.stat {
+  padding: 18px 20px; border-radius: 16px; border: 1px solid var(--border);
+  background: var(--bg-card); backdrop-filter: blur(16px); position: relative; overflow: hidden;
+}
+.stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--c, var(--blue)); }
+.stat-icon { font-size: 1.5rem; margin-bottom: 6px; }
+.stat-val { font-size: 1.7rem; font-weight: 800; color: var(--c, var(--blue)); line-height: 1; }
+.stat-lbl { font-size: 0.68rem; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 1px; }
+
+/* ─── API BANNER ─── */
+.api-banner {
+  background: linear-gradient(90deg, rgba(0,180,255,0.06), rgba(168,85,247,0.05));
+  border: 1px solid rgba(0,180,255,0.2); border-radius: 16px;
+  padding: 18px 22px; margin-bottom: 24px;
+}
+.api-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-top: 14px; }
+.api-card {
+  background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+}
+.api-lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.api-val { font-family: 'Courier New', monospace; font-size: 0.8rem; color: var(--blue); }
+
+/* ─── TWO-COL GRID ─── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+.glass {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
+  backdrop-filter: blur(16px); overflow: hidden;
+}
+.g-head {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 0.9rem;
+}
+.pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: p 2s infinite; margin-left: 6px; }
+@keyframes p { 0%,100%{opacity:1}50%{opacity:.4} }
+
+/* ─── TABLE ─── */
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+th { padding: 10px 16px; text-align: left; font-size: 0.67rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+td { padding: 10px 16px; border-bottom: 1px solid rgba(99,102,241,0.05); }
+tr:last-child td { border: none; }
+tbody tr { transition: .2s; }
+tbody tr:hover { background: rgba(0,180,255,0.04); }
+
+/* ─── TAGS ─── */
+.tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.67rem; font-weight: 600; }
+.t-live   { background: rgba(16,185,129,0.15); color: var(--green); }
+.t-admin  { background: rgba(168,85,247,0.15); color: var(--purple); }
+.t-user   { background: rgba(0,180,255,0.1);   color: var(--blue); }
+.t-off    { background: rgba(239,68,68,0.1);   color: var(--red); }
+
+/* ─── BUTTONS ─── */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 9px; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: .2s; }
+.btn-p { background: linear-gradient(135deg, var(--blue), #0080cc); color: #fff; border-color: rgba(0,180,255,0.35); box-shadow: 0 3px 16px rgba(0,180,255,0.18); }
+.btn-p:hover { transform: translateY(-1px); box-shadow: 0 5px 22px rgba(0,180,255,0.3); }
+.btn-v { background: linear-gradient(135deg, var(--purple), #7c3aed); color: #fff; border-color: rgba(168,85,247,0.35); box-shadow: 0 3px 16px rgba(168,85,247,0.18); }
+.btn-g { background: rgba(255,255,255,0.04); color: var(--dim); border-color: var(--border); }
+.btn-s { padding: 5px 11px; font-size: 0.74rem; border-radius: 7px; }
+
+/* ─── QUICK ACTIONS ─── */
+.qa { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+.qa-head { font-weight: 700; font-size: 0.9rem; margin-bottom: 14px; }
+.qa-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ─── FOOTER ─── */
+footer {
+  padding: 14px 28px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--muted);
+  flex-shrink: 0; background: rgba(5,5,8,0.8);
+}
+.credit-text {
+  background: linear-gradient(90deg, var(--blue), var(--purple));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 700;
+}
+
+/* ─── SCROLL ─── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.35); border-radius: 3px; }
+
+/* ─── CHANNEL PREVIEW ROWS ─── */
+.ch-logo { width: 30px; height: 20px; border-radius: 4px; background: rgba(99,102,241,0.1); display: flex; align-items: center; justify-content: center; font-size: 0.55rem; color: var(--muted); flex-shrink: 0; }
+.ch-name { font-weight: 600; font-size: 0.84rem; }
+.ch-grp  { font-size: 0.74rem; color: var(--purple); }
+
+/* ─── NEON HIGHLIGHT ─── */
+.neon-b { color: var(--blue); }
+.neon-p { color: var(--purple); }
+.neon-g { color: var(--green); }
+</style>
+</head>
+<body>
+
+<!-- ════ SIDEBAR ════ -->
+<aside class="sidebar">
+  <div class="sidebar-top">
+    <div class="logo">⚡ XtreamTV</div>
+    <div class="logo-sub">IPTV Proxy OS</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sect">Navigation</div>
+    <div class="nav-item active"><span class="nav-icon">⚡</span> Dashboard</div>
+    <div class="nav-item"><span class="nav-icon">📡</span> Playlists</div>
+    <div class="nav-item"><span class="nav-icon">📺</span> Channels</div>
+    <div class="nav-item"><span class="nav-icon">👥</span> Users</div>
+    <div class="nav-item"><span class="nav-icon">🔌</span> API Info</div>
+    <div class="nav-item"><span class="nav-icon">📋</span> Logs</div>
+  </nav>
+  <div class="sidebar-user">
+    <div class="avatar">K</div>
+    <div>
+      <div class="u-name">admin</div>
+      <div class="u-role">Administrator</div>
+    </div>
+    <div class="btn-out">✕</div>
+  </div>
+</aside>
+
+<!-- ════ MAIN ════ -->
+<main class="main">
+  <div class="topbar">
+    <div class="page-title">Dashboard</div>
+    <div class="topbar-r">
+      <span class="badge badge-admin">admin</span>
+      <span style="font-size:0.72rem;color:var(--muted)">XtreamTV v1.0.0</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── Stat Cards ── -->
+    <div class="stats">
+      <div class="stat" style="--c:var(--blue)">
+        <div class="stat-icon">👥</div>
+        <div class="stat-val">24</div>
+        <div class="stat-lbl">Total Users</div>
+      </div>
+      <div class="stat" style="--c:var(--green)">
+        <div class="stat-icon">✅</div>
+        <div class="stat-val">21</div>
+        <div class="stat-lbl">Active Users</div>
+      </div>
+      <div class="stat" style="--c:var(--purple)">
+        <div class="stat-icon">📺</div>
+        <div class="stat-val">14,832</div>
+        <div class="stat-lbl">Channels</div>
+      </div>
+      <div class="stat" style="--c:var(--cyan)">
+        <div class="stat-icon">📡</div>
+        <div class="stat-val">8</div>
+        <div class="stat-lbl">Playlists</div>
+      </div>
+      <div class="stat" style="--c:var(--green)">
+        <div class="stat-icon">🔴</div>
+        <div class="stat-val">7 <span style="font-size:0.9rem">LIVE</span></div>
+        <div class="stat-lbl">Active Streams</div>
+      </div>
+      <div class="stat" style="--c:var(--amber)">
+        <div class="stat-icon">📋</div>
+        <div class="stat-val">2.4k</div>
+        <div class="stat-lbl">Log Entries</div>
+      </div>
+    </div>
+
+    <!-- ── API Banner ── -->
+    <div class="api-banner">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-weight:700;font-size:0.93rem;margin-bottom:3px;">🔌 Your Xtream API Credentials</div>
+          <div style="font-size:0.78rem;color:var(--muted)">Use in TiviMate, IPTV Smarters, GSE, Perfect Player, or any Xtream-compatible app.</div>
+        </div>
+        <button class="btn btn-p btn-s">View Full API →</button>
+      </div>
+      <div class="api-grid">
+        <div class="api-card">
+          <div class="api-lbl">🌐 Server URL</div>
+          <div class="api-val" style="color:var(--blue)">http://yourserver.com/xtreamtv</div>
+        </div>
+        <div class="api-card">
+          <div class="api-lbl">👤 Username</div>
+          <div class="api-val" style="color:var(--purple)">admin</div>
+        </div>
+        <div class="api-card">
+          <div class="api-lbl">🔑 API Token</div>
+          <div class="api-val" style="color:var(--cyan);font-size:0.72rem">a3f9c2d1e4b87f…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Two-col panels ── -->
+    <div class="two-col">
+      <!-- Active Streams -->
+      <div class="glass">
+        <div class="g-head">
+          🔴 Active Streams <span class="pulse"></span>
+          <span style="font-size:0.72rem;color:var(--muted)">7 live</span>
+        </div>
+        <table>
+          <thead><tr><th>User</th><th>Channel</th><th>IP</th><th>Started</th></tr></thead>
+          <tbody>
+            <tr><td><span class="neon-b">john_doe</span></td><td>CNN HD</td><td style="font-family:monospace;font-size:0.74rem;color:var(--muted)">185.42.x.x</td><td style="color:var(--muted);font-size:0.76rem">09:41:22</td></tr>
+            <tr><td><span class="neon-b">sarah_k</span></td><td>ESPN 4K</td><td style="font-family:monospace;font-size:0.74rem;color:var(--muted)">92.168.x.x</td><td style="color:var(--muted);font-size:0.76rem">09:38:05</td></tr>
+            <tr><td><span class="neon-b">mike_t</span></td><td>BBC World</td><td style="font-family:monospace;font-size:0.74rem;color:var(--muted)">104.21.x.x</td><td style="color:var(--muted);font-size:0.76rem">09:35:51</td></tr>
+            <tr><td><span class="neon-b">alice_w</span></td><td>Sky Sports</td><td style="font-family:monospace;font-size:0.74rem;color:var(--muted)">203.0.x.x</td><td style="color:var(--muted);font-size:0.76rem">09:32:10</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="glass">
+        <div class="g-head">📋 Recent Activity <button class="btn btn-g btn-s" style="font-size:0.72rem">View All</button></div>
+        <table>
+          <thead><tr><th>User</th><th>Action</th><th>Details</th><th>Time</th></tr></thead>
+          <tbody>
+            <tr><td><span class="neon-p">system</span></td><td><span class="tag t-live">stream_start</span></td><td style="color:var(--muted);font-size:0.76rem">CNN HD</td><td style="color:var(--muted);font-size:0.72rem">09:41</td></tr>
+            <tr><td><span class="neon-p">admin</span></td><td><span class="tag t-admin">playlist_add</span></td><td style="color:var(--muted);font-size:0.76rem">Sports Pack</td><td style="color:var(--muted);font-size:0.72rem">09:20</td></tr>
+            <tr><td><span class="neon-p">john_doe</span></td><td><span class="tag t-user">login</span></td><td style="color:var(--muted);font-size:0.76rem">Web panel</td><td style="color:var(--muted);font-size:0.72rem">09:15</td></tr>
+            <tr><td><span class="neon-p">admin</span></td><td><span class="tag t-live">stream_start</span></td><td style="color:var(--muted);font-size:0.76rem">BBC World</td><td style="color:var(--muted);font-size:0.72rem">08:59</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Channel Preview ── -->
+    <div class="glass" style="margin-bottom:20px;">
+      <div class="g-head">
+        📺 Channel Browser <span style="font-size:0.72rem;color:var(--muted)">14,832 channels</span>
+        <button class="btn btn-p btn-s">View All →</button>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Channel</th><th>Group</th><th>Status</th><th>Proxy URL</th><th>Actions</th></tr></thead>
+        <tbody>
+          <?php /* Static mockup rows */ ?>
+          <tr>
+            <td style="color:var(--muted)">1</td>
+            <td><div style="display:flex;align-items:center;gap:10px;"><div class="ch-logo">TV</div><div class="ch-name">CNN HD</div></div></td>
+            <td><span class="ch-grp">News</span></td>
+            <td><span class="tag t-live">Active</span></td>
+            <td><span style="font-family:monospace;font-size:0.72rem;color:var(--blue)">/proxy.php?id=1&amp;t=***</span></td>
+            <td><div style="display:flex;gap:6px;"><button class="btn btn-g btn-s">▶</button><button class="btn btn-g btn-s">📋</button></div></td>
+          </tr>
+          <tr>
+            <td style="color:var(--muted)">2</td>
+            <td><div style="display:flex;align-items:center;gap:10px;"><div class="ch-logo">TV</div><div class="ch-name">ESPN 4K Ultra</div></div></td>
+            <td><span class="ch-grp">Sports</span></td>
+            <td><span class="tag t-live">Active</span></td>
+            <td><span style="font-family:monospace;font-size:0.72rem;color:var(--blue)">/proxy.php?id=2&amp;t=***</span></td>
+            <td><div style="display:flex;gap:6px;"><button class="btn btn-g btn-s">▶</button><button class="btn btn-g btn-s">📋</button></div></td>
+          </tr>
+          <tr>
+            <td style="color:var(--muted)">3</td>
+            <td><div style="display:flex;align-items:center;gap:10px;"><div class="ch-logo">TV</div><div class="ch-name">HBO Max [FHD]</div></div></td>
+            <td><span class="ch-grp">Movies</span></td>
+            <td><span class="tag t-off">Offline</span></td>
+            <td><span style="font-family:monospace;font-size:0.72rem;color:var(--blue)">/proxy.php?id=3&amp;t=***</span></td>
+            <td><div style="display:flex;gap:6px;"><button class="btn btn-g btn-s">▶</button><button class="btn btn-g btn-s">📋</button></div></td>
+          </tr>
+          <tr>
+            <td style="color:var(--muted)">4</td>
+            <td><div style="display:flex;align-items:center;gap:10px;"><div class="ch-logo">TV</div><div class="ch-name">BBC World News</div></div></td>
+            <td><span class="ch-grp">News</span></td>
+            <td><span class="tag t-live">Active</span></td>
+            <td><span style="font-family:monospace;font-size:0.72rem;color:var(--blue)">/proxy.php?id=4&amp;t=***</span></td>
+            <td><div style="display:flex;gap:6px;"><button class="btn btn-g btn-s">▶</button><button class="btn btn-g btn-s">📋</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Quick Actions ── -->
+    <div class="qa">
+      <div class="qa-head">⚡ Quick Actions</div>
+      <div class="qa-btns">
+        <button class="btn btn-p">➕ Add Playlist</button>
+        <button class="btn btn-v">🔌 API Setup Guide</button>
+        <button class="btn btn-g">👤 Add User</button>
+        <button class="btn btn-g">📋 View Logs</button>
+        <button class="btn btn-g" style="background:rgba(16,185,129,0.1);color:var(--green);border-color:rgba(16,185,129,0.2)">🧪 Test Xtream API</button>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <footer>
+    <span>© 2026 <span class="credit-text">Kobir Shah</span> — All Rights Reserved</span>
+    <span>XtreamTV <strong>v1.0.0</strong> &nbsp;|&nbsp; IPTV Proxy OS &nbsp;|&nbsp; Built by <span class="credit-text">Kobir Shah</span></span>
+  </footer>
+</main>
+
+<script>
+console.log('%c⚡ XtreamTV v1.0.0 — IPTV Proxy OS', 'color:#00b4ff;font-size:14px;font-weight:bold;');
+console.log('%c✦ Developed by Kobir Shah ✦ All Rights Reserved', 'color:#a855f7;font-size:11px;font-weight:600;');
+console.log('%cUI Preview — production PHP panel renders at /xtreamtv/', 'color:#64748b;font-size:10px;');
+</script>
+</body>
+</html>

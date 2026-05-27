@@ -1,0 +1,116 @@
+version: '3.8'
+
+# ============================================================
+#  XtreamTV IPTV OS — Docker Compose
+# ============================================================
+#  Developer   : Kobir Shah
+#  Local URL   : http://localhost:8080
+#  Public URL  : via Cloudflare Tunnel (auto HTTPS)
+#
+#  Commands:
+#    docker compose up -d --build   ← first run / after code change
+#    docker compose up -d           ← normal start
+#    docker compose down            ← stop all
+#    docker compose logs -f         ← live logs
+# ============================================================
+
+services:
+
+  # ── XtreamTV PHP/Apache App ──────────────────────────────
+  iptv-os:
+    build:
+      context: .               # uses ./Dockerfile
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: "${APP_VERSION:-2.0.0}"
+    image: xtreamtv:${APP_VERSION:-2.0.0}
+    container_name: kobir_iptv_os
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    volumes:
+      # Live-reload app source (remove in pure-prod to use image copy)
+      - ./xtreamtv:/var/www/html/xtreamtv
+      # Persistent DB, cache, logs survive container restarts
+      - xtreamtv_storage:/var/www/html/xtreamtv/storage
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+      - PHP_MEMORY_LIMIT=${PHP_MEMORY_LIMIT:-512M}
+      - PHP_MAX_EXECUTION_TIME=${PHP_MAX_EXECUTION_TIME:-300}
+      - PHP_UPLOAD_MAX_FILESIZE=${PHP_UPLOAD_MAX_FILESIZE:-200M}
+      - TZ=${TZ:-UTC}
+      - DEVELOPER=Kobir Shah
+      - APP_VERSION=${APP_VERSION:-2.0.0}
+    healthcheck:
+      test: ["CMD", "curl", "-fsSL", "http://localhost/xtreamtv/login.php", "-o", "/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - xtreamtv_net
+    labels:
+      - "com.xtreamtv.developer=Kobir Shah"
+      - "com.xtreamtv.version=2.0.0"
+      - "com.xtreamtv.service=app"
+
+  # ── Redis Cache ──────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: kobir_iptv_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --loglevel warning
+      --save ""
+    volumes:
+      - redis_data:/data
+    networks:
+      - xtreamtv_net
+    labels:
+      - "com.xtreamtv.developer=Kobir Shah"
+      - "com.xtreamtv.service=cache"
+
+  # ── Cloudflare Tunnel ────────────────────────────────────
+  # Exposes localhost:8080 to the internet via Cloudflare Zero Trust.
+  # No port-forwarding, no reverse proxy setup, instant HTTPS.
+  #
+  # Token is read from .env → CLOUDFLARE_TUNNEL_TOKEN
+  # ⚠️  NEVER hardcode the token here. Keep .env in .gitignore.
+  #
+  # Dashboard : https://one.dash.cloudflare.com
+  # Docs      : https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: kobir_iptv_cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      iptv-os:
+        condition: service_healthy   # waits for PHP app to pass health check
+    networks:
+      - xtreamtv_net
+    labels:
+      - "com.xtreamtv.developer=Kobir Shah"
+      - "com.xtreamtv.service=cloudflare-tunnel"
+
+# ── Named Volumes ──────────────────────────────────────────
+volumes:
+  xtreamtv_storage:
+    driver: local
+    labels:
+      com.xtreamtv.developer: "Kobir Shah"
+  redis_data:
+    driver: local
+
+# ── Internal Network ───────────────────────────────────────
+networks:
+  xtreamtv_net:
+    driver: bridge
+    labels:
+      com.xtreamtv.developer: "Kobir Shah"

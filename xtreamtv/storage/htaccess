@@ -1,0 +1,32 @@
+# ============================================================
+#  XtreamTV IPTV OS — Storage Directory Lockdown
+# ============================================================
+#  Developer        : Kobir Shah
+#  DEVELOPER_CREDIT : Powered by Kobir Shah
+#
+#  Pro-Tip #3: This .htaccess is the LAST LINE OF DEFENCE.
+#  Even if the root .htaccess is misconfigured or missing,
+#  this file ensures the entire storage/ tree is inaccessible
+#  via HTTP — including database.sqlite, logs, cache, EPG.
+# ============================================================
+
+# Deny ALL HTTP access to everything in this directory
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+    Satisfy all
+</IfModule>
+
+# Belt + suspenders: also deny via FilesMatch
+<FilesMatch ".*">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

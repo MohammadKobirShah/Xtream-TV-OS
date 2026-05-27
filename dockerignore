@@ -1,0 +1,35 @@
+# ============================================================
+#  XtreamTV IPTV OS — Docker Ignore
+#  Developer: Kobir Shah
+# ============================================================
+
+# Git
+.git
+.gitignore
+
+# Dev tools
+.vscode
+.idea
+*.swp
+*.swo
+
+# Runtime-generated (use named volumes instead)
+xtreamtv/storage/database.sqlite
+xtreamtv/storage/cache/
+xtreamtv/storage/logs/
+xtreamtv/storage/epg/
+xtreamtv/storage/sessions/
+xtreamtv/storage/installed.lock
+
+# Node (if any frontend tooling)
+node_modules/
+
+# Secrets
+.env
+*.pem
+*.key
+*.crt
+
+# OS
+.DS_Store
+Thumbs.db

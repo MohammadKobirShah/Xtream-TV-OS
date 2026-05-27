@@ -1,0 +1,31 @@
+# ============================================================
+#  XtreamTV IPTV OS — Live Environment Config
+#  Developer: Kobir Shah
+#  ⚠️  NEVER commit this file to git — add .env to .gitignore
+# ============================================================
+
+# ── App ─────────────────────────────────────────────────────
+APP_NAME=XtreamTV
+APP_VERSION=2.0.0
+DEVELOPER=Kobir Shah
+DEVELOPER_CREDIT="Powered by Kobir Shah"
+
+# ── Ports ────────────────────────────────────────────────────
+HTTP_PORT=8080
+HTTPS_PORT=8443
+REDIS_PORT=6379
+
+# ── Timezone ─────────────────────────────────────────────────
+TZ=UTC
+
+# ── PHP ──────────────────────────────────────────────────────
+PHP_MEMORY_LIMIT=512M
+PHP_MAX_EXECUTION_TIME=300
+PHP_UPLOAD_MAX_FILESIZE=200M
+
+# ── Default Admin ─────────────────────────────────────────────
+ADMIN_USER=admin
+ADMIN_PASS=admin123
+
+# ── Cloudflare Tunnel Token ───────────────────────────────────
+CLOUDFLARE_TUNNEL_TOKEN=eyJhIjoiMDI2NmVhMGQxYTQ2Y2VhN2NiYWZiOGFhMjYyY2FjMDYiLCJ0IjoiN2ViZjI2YmQtZTI4OC00NmE1LWIwOWQtMjJkZGY5ZjRmZjg0IiwicyI6Ik5UUTBZVEEzTVdZdE1EQmpOQzAwTVdJMUxUa3hZemN0Wm1JeE5HTTNOREppTkRsbSJ9
