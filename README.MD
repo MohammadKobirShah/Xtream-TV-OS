@@ -14,7 +14,7 @@
 <!-- BADGES ROW 2 -->
 [![FFmpeg](https://img.shields.io/badge/FFmpeg-Restream-007808?style=for-the-badge&logo=ffmpeg&logoColor=white)](https://ffmpeg.org)
 [![License](https://img.shields.io/badge/License-Proprietary-a855f7?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](#)
-[![Version](https://img.shields.io/badge/Version-2.0.0-00b4ff?style=for-the-badge&logo=semver&logoColor=white)](#)
+[![Version](https://img.shields.io/badge/Version-2.0.1-00b4ff?style=for-the-badge&logo=semver&logoColor=white)](#)
 [![Developer](https://img.shields.io/badge/Developer-Kobir_Shah-ec4899?style=for-the-badge&logo=github&logoColor=white)](https://github.com)
 
 <br/>
@@ -236,7 +236,7 @@ docker compose up -d --build
 
 ```env
 # .env — NEVER commit this file
-APP_VERSION=2.0.0
+APP_VERSION=2.0.1
 HTTP_PORT=8080
 TZ=UTC
 PHP_MEMORY_LIMIT=512M
@@ -430,7 +430,7 @@ Per-channel override: `channels.ffmpeg_mode` = `inherit` \| `off` \| `on` \| `au
 
 ```
 ╔═══════════════════════════════════════════════════════════════╗
-║  ⚡ XtreamTV                               [admin] v2.0.0    ║
+║  ⚡ XtreamTV                               [admin] v2.0.1    ║
 ╠═══════════╦═══════════════════════════════════════════════════╣
 ║           ║  ⚡ Dashboard                    [📺 Open Player]║
 ║  ⚡ Dash  ║  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐  ║
@@ -513,6 +513,20 @@ docker compose down -v            # ⚠️ deletes ALL data
 
 ## 📜 Changelog
 
+### 𝘃𝟮.𝟬.𝟭 (2026-05-27) — 𝗖𝗿𝗶𝘁𝗶𝗰𝗮𝗹 𝗕𝘂𝗴𝗳𝗶𝘅 𝗥𝗲𝗹𝗲𝗮𝘀𝗲
+
+| Type | Change | File |
+|------|--------|------|
+| 🐛 CRITICAL | `Auth::check()` checked nonexistent `auth_role` session key (always returned false) | `auth.php` |
+| 🐛 CRITICAL | `Security::login()` derived `role` from nonexistent `$user['role']` column (DB has `is_admin`) | `src/Security.php` |
+| 🐛 CRITICAL | `Security::login()` never set Auth-class session keys → infinite redirect loop | `src/Security.php` |
+| 🐛 FIX | `UserManager` queried/inserted/updated `role` column instead of `is_admin` | `src/UserManager.php` |
+| 🐛 FIX | `playlists.php` sorted by `p.created_at` (column is `added_at`) | `playlists.php` |
+| 🐛 FIX | `install.php` channels table missing `ffmpeg_mode` column | `install.php` |
+| 🐛 FIX | `index.php` dashboard stats used SQL string interpolation (5 queries) | `index.php` |
+| 🐛 FIX | `api.php` parse error — `echo` used inside `match` expression | `api.php` |
+| 🐛 FIX | `View.php` avatar initial `$username[0]` undefined offset when empty | `src/View.php` |
+
 ### 𝘃𝟮.𝟬.𝟬 — 𝗙𝘂𝗹𝗹 𝗥𝗲𝗹𝗲𝗮𝘀𝗲
 
 | Type | Change | File |
@@ -570,7 +584,7 @@ Unauthorized copying, modification, distribution, or removal
 of developer credits is strictly prohibited.
 
 Developed by: Kobir Shah
-Project:      XtreamTV IPTV OS v2.0.0
+Project:      XtreamTV IPTV OS v2.0.1
 ```
 
 ---
@@ -581,7 +595,7 @@ Project:      XtreamTV IPTV OS v2.0.0
 
 **𝗕𝘂𝗶𝗹𝘁 𝘄𝗶𝘁𝗵 ❤️ 𝗯𝘆 𝗞𝗼𝗯𝗶𝗿 𝗦𝗵𝗮𝗵**
 
-*XtreamTV IPTV OS v2.0.0 — Production-grade PHP IPTV Proxy Panel*
+*XtreamTV IPTV OS v2.0.1 — Production-grade PHP IPTV Proxy Panel*
 
 [![GitHub](https://img.shields.io/badge/GitHub-Kobir_Shah-181717?style=flat-square&logo=github)](https://github.com)
 [![PHP](https://img.shields.io/badge/PHP-8.2-777BB4?style=flat-square&logo=php&logoColor=white)](https://php.net)
